@@ -4,6 +4,8 @@ from scanner.core import ScannerCore
 from planner.agent import PlannerAgent
 from patcher.git_ops import GitPatcher
 from validator.sandbox import SandboxValidator
+from delivery.github_ops import GitHubDelivery
+from delivery.slack_notify import SlackNotifier
 
 def run_ghost_committer(repo_path):
     print(f"--- Waking up Ghost Committer for {repo_path} ---")
@@ -12,8 +14,9 @@ def run_ghost_committer(repo_path):
     scanner = ScannerCore(repo_path)
     report = scanner.generate_full_report()
     
+    lint_count = len(report['findings'].get('lint', []))
     print("\n--- Scan Report ---")
-    print(f"Lint issues: {len(report['findings'].get('lint', []))}")
+    print(f"Lint issues: {lint_count}")
     if report['findings'].get('dead_code'):
         print("Dead code detected.")
     else:
@@ -29,6 +32,7 @@ def run_ghost_committer(repo_path):
     # Layer 4: Patcher
     print("\n--- Patching ---")
     patcher = GitPatcher(repo_path)
+    branch = None
     if patcher.repo:
         branch = patcher.create_branch("chore/ghost-auto")
         if branch:
@@ -49,6 +53,24 @@ def run_ghost_committer(repo_path):
     if val_result.get("status") == "success":
         print("\n--- Success: Pipeline Green ---")
         print("Ready for Delivery (PR creation).")
+        
+        # Layer 6: Delivery
+        print("\n--- Delivery ---")
+        github_del = GitHubDelivery()
+        slack = SlackNotifier()
+        
+        # In a real environment, the GitPatcher would push to the remote here before opening the PR.
+        
+        if branch:
+             pr_res = github_del.create_pull_request(
+                  branch_name=branch, 
+                  title="Chore: Overnight Tech Debt Cleanup", 
+                  body=plan_result['plan']
+             )
+             
+             if pr_res.get("status") in ["success", "dry_run"]:
+                  slack.send_morning_digest(pr_url=pr_res.get("url"), stats={"lint_issues": lint_count})
+                  
     else:
         print("\n--- Failed: Pipeline Red ---")
         print("Tests failed or sandbox error. PR will not be opened.")
