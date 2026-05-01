@@ -48,35 +48,69 @@ Ghost Committer operates on a strict **5-Layer Pipeline** to ensure that no brok
 2.  **Docker Desktop** installed and running (required for the Validator layer).
 3.  **Local LLM:** Download a GGUF model (e.g., Llama 3 or Phi-3) and place it in a `models/` directory if you want real code generation (otherwise it runs in "mock" mode).
 
-### Setup
+## 🛠️ Current Status: Partially Operational
 
-1.  **Activate the Virtual Environment:**
+As of **May 1, 2026**, the following layers are fully functional:
+- ✅ **Scanner (L2):** `ruff`, `vulture`, and `pip-audit` are integrated and reporting correctly.
+- ✅ **Planner (L3):** Operates in **Mock Mode** (generates a standard cleanup plan).
+- ✅ **Patcher (L4):** Robust branching, staging, and committing logic is implemented. Now supports automatic return to the original branch on failure.
+- ✅ **Delivery (L6):** Slack notification syntax fixed. Dry-run mode works; PR creation requires a valid `GITHUB_TOKEN`.
+
+**Blocked Layer:**
+- ❌ **Validator (L5):** Requires **Docker Desktop** to be running to create the "Sandbox" container for test execution.
+
+---
+
+## 🚀 Setup & Execution
+
+### 1. Prerequisites
+*   **Python 3.10+**
+*   **Git:** Must be installed and configured in your system PATH.
+*   **Docker Desktop (CRITICAL):** Must be running for the Validator layer to pass.
+
+### 2. Installation
+1.  **Clone the Repository.**
+2.  **Initialize the Virtual Environment:**
     ```powershell
+    python -m venv .venv
     .\.venv\Scripts\Activate.ps1
     ```
-2.  **(Optional) Set Environment Variables for Delivery:**
-    If these are not set, the delivery layer will run in "dry-run" mode (it will print what it *would* do to the console).
+3.  **Install Dependencies:**
     ```powershell
-    $env:GITHUB_TOKEN="your_github_pat"
-    $env:GITHUB_REPOSITORY="your_username/your_repo"
-    $env:SLACK_BOT_TOKEN="xoxb-your-slack-token"
-    $env:SLACK_CHANNEL="#engineering"
+    pip install -r requirements.txt
     ```
+    *(Note: Key libraries like `GitPython`, `PyGithub`, and `docker-py` are now required).*
 
-### Execution
+### 3. Environment Configuration
+Create a `.env` file or set the following in your shell:
+```powershell
+$env:GITHUB_TOKEN="your_pat_here"
+$env:GITHUB_REPOSITORY="username/repo"
+$env:SLACK_BOT_TOKEN="xoxb-..."
+$env:SLACK_CHANNEL="#engineering"
+```
 
-To run the agent manually (or configure this to run via a Cron job / OpenClaw Heartbeat):
-
+### 4. Running the Agent
 ```powershell
 python main.py
 ```
 
-*You can also point it at a specific repository directory:*
-```powershell
-python main.py "C:\path\to\another\repo"
-```
+---
 
-## 🔮 Future Enhancements
-*   Integrate AST parsing (`tree-sitter`) into the Scanner to intelligently remove dead functions without breaking imports.
-*   Implement automatic minor-version bumping for known CVEs.
-*   Expand the Validator to read a `SKILL.md` file to determine the correct test commands for different languages (Node.js, Rust, Go).
+## 🗺️ Roadmap & Next Steps (Detailed)
+
+### Phase 1: Infrastructure (Immediate)
+1.  **Docker Integration:** Ensure Docker is accessible to the Python environment. The agent needs to be able to run `docker ps` without errors.
+2.  **LLM Setup:**
+    *   Create a `models/` folder.
+    *   Download a GGUF model (e.g., `phi-3-mini-4k-instruct.Q4_K_M.gguf`).
+    *   Update the path in `planner/agent.py` to enable real AI-driven patching instead of "Mock Mode."
+
+### Phase 2: OpenClaw Integration
+1.  **Manifest Creation:** Create an `openclaw.yaml` file to define the agent's schedule and resource requirements for the Samsung PRISM platform.
+2.  **SDK Integration:** Implement the `OpenClaw Heartbeat` in `main.py` to allow the platform to monitor the agent's overnight progress.
+
+### Phase 3: Advanced Intelligence
+1.  **AST Refinement:** Use the already-installed `tree-sitter` library to move beyond simple string replacement and perform intelligent code refactoring.
+2.  **Multi-Language Validation:** Expand `validator/sandbox.py` to auto-detect the project type (Node, Go, Python) and run the appropriate test suite.
+
