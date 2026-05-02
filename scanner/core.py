@@ -11,7 +11,10 @@ class ScannerCore:
                 "lint": [],
                 "dead_code": "",
                 "vulnerabilities": []
-            }
+            },
+            "todos": [],
+            "complex_functions": [],
+            "missing_docstrings": []
         }
 
     def generate_full_report(self):
