@@ -83,6 +83,7 @@ def run_ghost_committer(repo_path):
             with open(os.path.join(repo_path, "dummy_fix.txt"), "a") as f:
                 f.write(f"Fixed a simulated tech debt issue (retry {retries_used}).\n")
             patcher.commit_changes(f"chore: apply overnight tech debt fixes (retry {retries_used})")
+            patcher.push_branch(branch)
             print(f"[Main] Re-applied patch for retry {retries_used}")
 
         # Re-run validator

@@ -12,13 +12,10 @@ class GitPatcher:
             self.repo = None
 
     def create_branch(self, prefix="chore/ghost"):
-        """Creates and checkouts a new branch for the automated fixes."""
         if not self.repo:
             return None
-
         date_str = datetime.datetime.now().strftime("%Y%m%d-%H%M")
         branch_name = f"{prefix}-{date_str}"
-        
         try:
             print(f"[Patcher] Creating and switching to branch: {branch_name}")
             new_branch = self.repo.create_head(branch_name)
@@ -29,19 +26,14 @@ class GitPatcher:
             return None
 
     def commit_changes(self, message):
-        """Stages all changes and commits them."""
         if not self.repo:
             return False
-
         try:
-            # Check if there are changes to commit
             if not self.repo.is_dirty(untracked_files=True):
                 print("[Patcher] No changes detected to commit.")
                 return False
-
             print("[Patcher] Staging changes...")
             self.git.add(A=True)
-            
             print(f"[Patcher] Committing with message: '{message}'")
             self.repo.index.commit(message)
             return True
@@ -49,16 +41,30 @@ class GitPatcher:
             print(f"[Patcher] Git error during commit: {e}")
             return False
 
+    def push_branch(self, branch_name):
+        try:
+            self.repo.remotes.origin.push(branch_name)
+            print(f"[Patcher] Branch {branch_name} pushed to GitHub.")
+            return True
+        except Exception as e:
+            print(f"[Patcher] Push failed: {e}")
+            return False
+
+    def cleanup_branch(self, branch_name):
+        try:
+            self.repo.heads.main.checkout()
+            self.repo.delete_head(branch_name, force=True)
+            print(f"[Patcher] Branch {branch_name} deleted.")
+        except Exception as e:
+            print(f"[Patcher] Cleanup failed: {e}")
+
 if __name__ == "__main__":
-    # Test script assumes it's run inside a git repository
     patcher = GitPatcher(".")
     if patcher.repo:
         branch = patcher.create_branch("test/ghost")
         if branch:
-            # Mock a file change
             with open("test_patch.txt", "w") as f:
                 f.write("Ghost committer was here.\n")
-            
             success = patcher.commit_changes("chore: test ghost committer patcher")
             if success:
                 print(f"Successfully committed to {branch}.")
