@@ -31,7 +31,7 @@ class SlackNotifier:
              return True
              
         try:
-            response = self.client.chat_postMessage(
+            self.client.chat_postMessage(
                 channel=self.channel,
                 text=message
             )

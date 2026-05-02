@@ -1,4 +1,3 @@
-import os
 import datetime
 from git import Repo, GitCommandError
 

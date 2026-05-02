@@ -1,6 +1,7 @@
 import subprocess
 import json
 import os
+import ast
 
 class CodeScanner:
     def __init__(self, repo_path):
@@ -11,6 +12,11 @@ class CodeScanner:
         """Helper to get the full path of a command in the venv."""
         full_path = os.path.join(self.venv_bin, f"{cmd}.exe")
         return full_path if os.path.exists(full_path) else cmd
+
+    def _should_skip_dir(self, dirname):
+        """Skip common non-source directories."""
+        skip = {".venv", "venv", "__pycache__", ".git", ".pytest_cache", "node_modules", ".tox"}
+        return dirname in skip or dirname.startswith(".")
 
     def run_ruff(self):
         """Runs ruff linter and returns findings."""
@@ -60,8 +66,99 @@ class CodeScanner:
         except Exception as e:
             return {"error": str(e)}
 
+    def find_todos(self):
+        """Walk all .py files and find TODO/FIXME comments."""
+        print(f"[Scanner] Scanning for TODOs in {self.repo_path}...")
+        todos = []
+        for root, dirs, files in os.walk(self.repo_path):
+            dirs[:] = [d for d in dirs if not self._should_skip_dir(d)]
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                fpath = os.path.join(root, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        for line_no, line in enumerate(f, start=1):
+                            if "# TODO" in line or "# FIXME" in line:
+                                todos.append({
+                                    "file": fpath,
+                                    "line": line_no,
+                                    "text": line.rstrip("\n")
+                                })
+                except Exception as e:
+                    print(f"[Scanner] Could not read {fpath}: {e}")
+        return todos
+
+    def find_complex_functions(self):
+        """Use AST to find functions with 3+ nested If nodes."""
+        print(f"[Scanner] Scanning for complex functions in {self.repo_path}...")
+        flagged = []
+        for root, dirs, files in os.walk(self.repo_path):
+            dirs[:] = [d for d in dirs if not self._should_skip_dir(d)]
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                fpath = os.path.join(root, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        source = f.read()
+                    tree = ast.parse(source)
+                    for node in ast.walk(tree):
+                        if isinstance(node, ast.FunctionDef):
+                            nested_if_count = 0
+                            for child in ast.walk(node):
+                                if isinstance(child, ast.If) and child is not node:
+                                    nested_if_count += 1
+                            if nested_if_count >= 3:
+                                flagged.append({
+                                    "file": fpath,
+                                    "function": node.name,
+                                    "nesting_depth": nested_if_count
+                                })
+                except Exception as e:
+                    print(f"[Scanner] Could not parse {fpath}: {e}")
+        return flagged
+
+    def find_missing_docstrings(self):
+        """Use AST to find exported functions missing docstrings."""
+        print(f"[Scanner] Scanning for missing docstrings in {self.repo_path}...")
+        flagged = []
+        for root, dirs, files in os.walk(self.repo_path):
+            dirs[:] = [d for d in dirs if not self._should_skip_dir(d)]
+            for fname in files:
+                if not fname.endswith(".py"):
+                    continue
+                fpath = os.path.join(root, fname)
+                try:
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        source = f.read()
+                    tree = ast.parse(source)
+                    for node in ast.walk(tree):
+                        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                            if node.name.startswith("__"):
+                                continue
+                            has_docstring = False
+                            if node.body:
+                                first_stmt = node.body[0]
+                                if isinstance(first_stmt, ast.Expr) and isinstance(first_stmt.value, ast.Constant) and isinstance(first_stmt.value.value, str):
+                                    has_docstring = True
+                            if not has_docstring:
+                                flagged.append({
+                                    "file": fpath,
+                                    "function": node.name,
+                                    "line": node.lineno
+                                })
+                except Exception as e:
+                    print(f"[Scanner] Could not parse {fpath}: {e}")
+        return flagged
+
 if __name__ == "__main__":
-    # Test on itself for now
     scanner = CodeScanner(".")
     print("--- RUFF FINDINGS ---")
     print(scanner.run_ruff())
+    print("\n--- TODOS ---")
+    print(scanner.find_todos())
+    print("\n--- COMPLEX FUNCTIONS ---")
+    print(scanner.find_complex_functions())
+    print("\n--- MISSING DOCSTRINGS ---")
+    print(scanner.find_missing_docstrings())
