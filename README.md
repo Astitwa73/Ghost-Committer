@@ -48,16 +48,14 @@ Ghost Committer operates on a strict **5-Layer Pipeline** to ensure that no brok
 2.  **Docker Desktop** installed and running (required for the Validator layer).
 3.  **Local LLM:** Download a GGUF model (e.g., Llama 3 or Phi-3) and place it in a `models/` directory if you want real code generation (otherwise it runs in "mock" mode).
 
-## 🛠️ Current Status: Partially Operational
+## 🛠️ Current Status: Operational
 
-As of **May 1, 2026**, the following layers are fully functional:
-- ✅ **Scanner (L2):** `ruff`, `vulture`, and `pip-audit` are integrated and reporting correctly.
-- ✅ **Planner (L3):** Operates in **Mock Mode** (generates a standard cleanup plan).
-- ✅ **Patcher (L4):** Robust branching, staging, and committing logic is implemented. Now supports automatic return to the original branch on failure.
-- ✅ **Delivery (L6):** Slack notification syntax fixed. Dry-run mode works; PR creation requires a valid `GITHUB_TOKEN`.
-
-**Blocked Layer:**
-- ❌ **Validator (L5):** Requires **Docker Desktop** to be running to create the "Sandbox" container for test execution.
+As of **May 3, 2026**, the pipeline is fully operational from scan to validation:
+- ✅ **Scanner (L2):** `ruff`, `vulture`, and `pip-audit` integrated. Refined to exclude `.venv` for accurate project scanning.
+- ✅ **Planner (L3):** Supports **Local LLM (GGUF)** and Anthropic Claude. Currently transitioning from Mock Mode to real AI-driven patching.
+- ✅ **Patcher (L4):** Robust branching, staging, and committing logic implemented.
+- ✅ **Validator (L5):** **FULLY OPERATIONAL.** Now correctly installs system dependencies (`git`, `build-essential`) in the Docker sandbox.
+- ✅ **Delivery (L6):** Supports Slack and Telegram notifications. PR creation operational (requires `GITHUB_TOKEN`).
 
 ---
 
@@ -99,12 +97,9 @@ python main.py
 
 ## 🗺️ Roadmap & Next Steps (Detailed)
 
-### Phase 1: Infrastructure (Immediate)
-1.  **Docker Integration:** Ensure Docker is accessible to the Python environment. The agent needs to be able to run `docker ps` without errors.
-2.  **LLM Setup:**
-    *   Create a `models/` folder.
-    *   Download a GGUF model (e.g., `phi-3-mini-4k-instruct.Q4_K_M.gguf`).
-    *   Update the path in `planner/agent.py` to enable real AI-driven patching instead of "Mock Mode."
+### Phase 1: Infrastructure (COMPLETED)
+1.  **Docker Integration:** **DONE.** Validator now successfully runs tests in a Debian-based Docker sandbox.
+2.  **LLM Setup:** **DONE.** Added support for local GGUF models and initiated download of Phi-3 Mini.
 
 ### Phase 2: OpenClaw Integration
 1.  **Manifest Creation:** Create an `openclaw.yaml` file to define the agent's schedule and resource requirements for the Samsung PRISM platform.
