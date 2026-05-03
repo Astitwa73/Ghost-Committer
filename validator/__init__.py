@@ -1,1 +1,1 @@
-from .sandbox import SandboxValidator
+from .sandbox import SandboxValidator as SandboxValidator

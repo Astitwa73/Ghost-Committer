@@ -1,1 +1,1 @@
-from .engine import CodeScanner
+from .engine import CodeScanner as CodeScanner
