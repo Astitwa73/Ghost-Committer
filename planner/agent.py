@@ -195,6 +195,9 @@ class PlannerAgent:
         lint = findings.get("lint", [])
         dead = findings.get("dead_code", "")
         vulns = findings.get("vulnerabilities", [])
+        todos = scan_report.get("todos", [])
+        complex_funcs = scan_report.get("complex_functions", [])
+        missing_docs = scan_report.get("missing_docstrings", [])
 
         prompt = "You are Ghost Committer, an autonomous AI developer agent. Create a concise, actionable plan to fix the following issues:\n\n"
         if lint:
@@ -203,6 +206,12 @@ class PlannerAgent:
             prompt += f"Dead Code:\n{dead[:500]}\n"
         if vulns:
             prompt += f"Vulnerabilities:\n{json.dumps(vulns[:5], indent=2)}\n"
+        if todos:
+            prompt += f"TODO Comments:\n{json.dumps(todos[:5], indent=2)}\n"
+        if complex_funcs:
+            prompt += f"Complex Functions:\n{json.dumps(complex_funcs[:5], indent=2)}\n"
+        if missing_docs:
+            prompt += f"Missing Docstrings:\n{json.dumps(missing_docs[:5], indent=2)}\n"
 
         prompt += "\nPlan of action:\n1."
         return prompt

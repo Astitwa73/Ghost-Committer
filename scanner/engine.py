@@ -56,9 +56,112 @@ class CodeScanner:
                 text=True,
                 check=False
             )
-            return json.loads(result.stdout) if result.stdout else []
+            if not result.stdout:
+                return []
+            
+            data = json.loads(result.stdout)
+            vulns = []
+            if "dependencies" in data:
+                for dep in data["dependencies"]:
+                    if dep.get("vulns"):
+                        for v in dep["vulns"]:
+                            vulns.append({
+                                "package": dep.get("name"),
+                                "version": dep.get("version"),
+                                "id": v.get("id"),
+                                "description": v.get("description")
+                            })
+            return vulns
         except Exception as e:
             return {"error": str(e)}
+
+    def scan_todos(self):
+        """Finds TODO and FIXME comments."""
+        print(f"[Scanner] Scanning for TODOs in {self.repo_path}...")
+        todos = []
+        for root, dirs, files in os.walk(self.repo_path):
+            if ".venv" in dirs:
+                dirs.remove(".venv")
+            if ".git" in dirs:
+                dirs.remove(".git")
+            
+            for file in files:
+                if file.endswith(".py"):
+                    path = os.path.join(root, file)
+                    try:
+                        with open(path, "r", encoding="utf-8") as f:
+                            for i, line in enumerate(f, 1):
+                                if "TODO:" in line or "FIXME:" in line:
+                                    todos.append({
+                                        "file": os.path.relpath(path, self.repo_path),
+                                        "line": i,
+                                        "content": line.strip()
+                                    })
+                    except Exception:
+                        continue
+        return todos
+
+    def scan_complex_functions(self):
+        """Identify potentially complex functions (simple heuristic)."""
+        print(f"[Scanner] Scanning for complex functions in {self.repo_path}...")
+        complex_funcs = []
+        for root, dirs, files in os.walk(self.repo_path):
+            if ".venv" in dirs:
+                dirs.remove(".venv")
+            
+            for file in files:
+                if file.endswith(".py"):
+                    path = os.path.join(root, file)
+                    try:
+                        with open(path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                            # Simple heuristic: count 'if', 'for', 'while' inside a function
+                            # Real implementation would use AST
+                            lines = content.splitlines()
+                            current_func = None
+                            complexity = 0
+                            for i, line in enumerate(lines, 1):
+                                if line.strip().startswith("def "):
+                                    if current_func and complexity > 3:
+                                        complex_funcs.append(current_func)
+                                    current_func = {"name": line.split("(")[0].replace("def ", "").strip(), "file": os.path.relpath(path, self.repo_path), "line": i}
+                                    complexity = 0
+                                elif current_func:
+                                    complexity += line.count(" if ") + line.count(" for ") + line.count(" while ")
+                            if current_func and complexity > 3:
+                                complex_funcs.append(current_func)
+                    except Exception:
+                        continue
+        return complex_funcs
+
+    def scan_missing_docstrings(self):
+        """Finds functions missing docstrings."""
+        print(f"[Scanner] Scanning for missing docstrings in {self.repo_path}...")
+        missing = []
+        for root, dirs, files in os.walk(self.repo_path):
+            if ".venv" in dirs:
+                dirs.remove(".venv")
+            
+            for file in files:
+                if file.endswith(".py"):
+                    path = os.path.join(root, file)
+                    try:
+                        with open(path, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                            for i, line in enumerate(lines):
+                                if line.strip().startswith("def "):
+                                    # Check next line for docstring
+                                    if i + 1 < len(lines):
+                                        next_line = lines[i+1].strip()
+                                        if not (next_line.startswith('"""') or next_line.startswith("'''")):
+                                            missing.append({
+                                                "name": line.split("(")[0].replace("def ", "").strip(),
+                                                "file": os.path.relpath(path, self.repo_path),
+                                                "line": i + 1
+                                            })
+                    except Exception:
+                        continue
+        return missing
 
 if __name__ == "__main__":
     # Test on itself for now

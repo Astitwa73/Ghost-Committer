@@ -29,6 +29,15 @@ class ScannerCore:
         
         # 3. Vulnerabilities
         self.report["findings"]["vulnerabilities"] = self.scanner.run_pip_audit()
+
+        # 4. TODOs
+        self.report["todos"] = self.scanner.scan_todos()
+
+        # 5. Complex Functions
+        self.report["complex_functions"] = self.scanner.scan_complex_functions()
+
+        # 6. Missing Docstrings
+        self.report["missing_docstrings"] = self.scanner.scan_missing_docstrings()
         
         return self.report
 
@@ -40,5 +49,8 @@ if __name__ == "__main__":
     print(f"Time: {report['timestamp']}")
     print(f"Lint issues: {len(report['findings']['lint'])}")
     print(f"Vulnerabilities: {len(report['findings']['vulnerabilities'])}")
+    print(f"TODOs: {len(report['todos'])}")
+    print(f"Complex functions: {len(report['complex_functions'])}")
+    print(f"Missing docstrings: {len(report['missing_docstrings'])}")
     if report['findings']['dead_code']:
         print("Dead code detected.")
