@@ -40,7 +40,7 @@ class SandboxValidator:
 
         volumes = {self.repo_path: {"bind": "/app", "mode": "rw"}}
         full_cmd = (
-            "sh -c 'apt-get update && apt-get install -y git && "
+            "sh -c 'apt-get update && apt-get install -y git build-essential && "
             "pip install --upgrade pip && "
             "pip install -r requirements.txt && "
             "python -m unittest discover -s . -p test_*.py'"
