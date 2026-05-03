@@ -52,9 +52,9 @@ Ghost Committer operates on a strict **5-Layer Pipeline** to ensure that no brok
 
 As of **May 3, 2026**, the pipeline is fully operational from scan to validation:
 - ✅ **Scanner (L2):** `ruff`, `vulture`, and `pip-audit` integrated. Refined to exclude `.venv` for accurate project scanning.
-- ✅ **Planner (L3):** Supports **Local LLM (GGUF)** and Anthropic Claude. Currently transitioning from Mock Mode to real AI-driven patching.
+- ✅ **Planner (L3):** Supports **Local LLM (GGUF)** and Anthropic Claude. Successfully tested with **Phi-3 Mini** for autonomous plan generation.
 - ✅ **Patcher (L4):** Robust branching, staging, and committing logic implemented.
-- ✅ **Validator (L5):** **FULLY OPERATIONAL.** Now correctly installs system dependencies (`git`, `build-essential`) in the Docker sandbox.
+- ✅ **Validator (L5):** **FULLY OPERATIONAL.** Now correctly installs system dependencies (`git`, `build-essential`) in the Docker sandbox. Successfully validated code fixes.
 - ✅ **Delivery (L6):** Supports Slack and Telegram notifications. PR creation operational (requires `GITHUB_TOKEN`).
 
 ---
