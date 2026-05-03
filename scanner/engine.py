@@ -18,7 +18,7 @@ class CodeScanner:
         print(f"[Scanner] Running {cmd} on {self.repo_path}...")
         try:
             result = subprocess.run(
-                [cmd, "check", self.repo_path, "--format", "json"],
+                [cmd, "check", self.repo_path, "--format", "json", "--exclude", ".venv"],
                 capture_output=True,
                 text=True,
                 check=False
@@ -30,10 +30,10 @@ class CodeScanner:
     def run_vulture(self):
         """Runs vulture to find dead code."""
         cmd = self._get_cmd_path("vulture")
-        print(f"[Scanner] Running {cmd} on {self.repo_path}...")
+        print(f"[Scanner] Running {cmd} on {self.repo_path} --exclude .venv...")
         try:
             result = subprocess.run(
-                [cmd, self.repo_path],
+                [cmd, self.repo_path, "--exclude", ".venv"],
                 capture_output=True,
                 text=True,
                 check=False
