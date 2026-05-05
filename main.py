@@ -1,11 +1,24 @@
 import os
 import argparse
+import subprocess
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
+
+
+def _oc_event(message: str):
+    """Emit a system event to the OpenClaw gateway (best-effort, never fatal)."""
+    try:
+        subprocess.run(
+            ["openclaw", "system", "event", "--message", message],
+            capture_output=True,
+            timeout=5,
+        )
+    except Exception:
+        pass
 
 from scanner.core import ScannerCore
 from planner.agent import PlannerAgent
@@ -20,6 +33,7 @@ MAX_RETRIES = 3
 
 def run_ghost_committer(repo_path):
     print(f"--- Waking up Ghost Committer for {repo_path} ---")
+    _oc_event(f"ghost-committer: pipeline started for {repo_path}")
 
     # Layer 2: Scanner
     scanner = ScannerCore(repo_path)
@@ -40,12 +54,19 @@ def run_ghost_committer(repo_path):
     print(f"Complex functions: {complex_count}")
     print(f"Missing docstrings: {docstring_count}")
 
+    _oc_event(
+        f"ghost-committer: scan_complete — lint:{lint_count} todos:{todo_count} "
+        f"complex:{complex_count} missing_docs:{docstring_count}"
+    )
+
     # Layer 3: Planner
     planner = PlannerAgent()
     plan_result = planner.generate_plan(report)
 
     print("\n--- Proposed Plan ---")
     print(plan_result["plan"])
+
+    _oc_event(f"ghost-committer: plan_complete — model:{plan_result.get('model','unknown')}")
 
     # Layer 4: Patcher
     print("\n--- Patching ---")
@@ -60,17 +81,20 @@ def run_ghost_committer(repo_path):
 
             patcher.commit_changes("chore: apply overnight tech debt fixes")
             print(f"[Main] Changes committed to branch {branch}")
+            _oc_event(f"ghost-committer: patch_complete — branch:{branch}")
         else:
             print("[Main] Failed to create branch.")
 
     # Layer 5: Validator with Self-Correction Loop
     print("\n--- Validating ---")
+    _oc_event("ghost-committer: validation_start")
     validator = SandboxValidator(repo_path)
     val_result = validator.run_tests()
 
     retries_used = 0
     while val_result.get("status") != "success" and retries_used < MAX_RETRIES:
         retries_used += 1
+        _oc_event(f"ghost-committer: validation_retry attempt:{retries_used}/{MAX_RETRIES}")
         print(f"\n--- Validation Failed (Attempt {retries_used}/{MAX_RETRIES}) ---")
         failure_output = val_result.get("output", val_result.get("message", "Unknown error"))
         print(f"Failure reason: {failure_output}")
@@ -125,8 +149,13 @@ def run_ghost_committer(repo_path):
                     plan_summary=plan_result["plan"],
                     retries_used=retries_used,
                 )
+                _oc_event(
+                    f"ghost-committer: delivery_complete — pr:{pr_res.get('url','dry-run')} "
+                    f"retries:{retries_used}"
+                )
     else:
         print("\n--- Failed: Pipeline Red ---")
+        _oc_event(f"ghost-committer: pipeline_failed — retries_exhausted:{retries_used}")
         print("Tests failed or sandbox error. PR will not be opened.")
         if "message" in val_result:
             print(f"Reason: {val_result['message']}")

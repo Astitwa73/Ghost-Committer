@@ -3,7 +3,21 @@
     "allow": [
       "Bash(find:*)",
       "Bash(git log:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Read(//Users/admin/.openclaw/**)",
+      "Read(//Users/admin/.openclaw/agents/main/**)",
+      "Read(//Users/admin/.openclaw/agents/main/agent/**)",
+      "Bash(openclaw config *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); props=d.get\\('properties',{}\\); [print\\(k,'->',v.get\\('description',''\\)\\) for k,v in props.items\\(\\)]\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); skills=d.get\\('properties',{}\\).get\\('skills',{}\\); print\\(json.dumps\\(skills,indent=2\\)\\)\")",
+      "Bash(python3 -c \"import anthropic, git, github\")",
+      "Bash(python3 -m venv .venv)",
+      "Bash(.venv/bin/pip install *)",
+      "Bash(jobs)",
+      "Bash(openclaw gateway *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/pip list *)",
+      "Bash(openclaw doctor *)"
     ]
   }
 }

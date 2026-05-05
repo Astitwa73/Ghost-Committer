@@ -1,0 +1,47 @@
+# Ghost Committer — OpenClaw Platform Manifest
+# Samsung PRISM OpenClaw Platform Hackathon (2026)
+
+name: ghost-committer
+version: "1.0.0"
+description: Autonomous overnight tech debt cleanup agent for Python repositories
+
+schedule:
+  cron: "0 2 * * *"        # 02:00 local time, every night
+  timezone: local
+  timeout_minutes: 60
+
+agent:
+  entry: main.py
+  interpreter: .venv/bin/python
+  default_repo: "."
+
+heartbeat:
+  enabled: true
+  interval_minutes: 5
+  events:
+    - scan_complete
+    - plan_complete
+    - patch_complete
+    - validation_start
+    - validation_retry
+    - delivery_complete
+    - pipeline_failed
+
+resources:
+  requires_docker: false     # Docker preferred; local fallback available
+  requires_git: true
+  requires_network: true     # Claude API + GitHub API
+
+environment:
+  dotenv: .env
+  required:
+    - ANTHROPIC_API_KEY
+    - GITHUB_TOKEN
+    - GITHUB_REPOSITORY
+  optional:
+    - SLACK_BOT_TOKEN
+    - SLACK_CHANNEL
+    - TELEGRAM_BOT_TOKEN
+    - TELEGRAM_CHAT_ID
+
+skills_dir: skills/
