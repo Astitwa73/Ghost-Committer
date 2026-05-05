@@ -46,20 +46,36 @@ class CodeScanner:
             return str(e)
 
     def run_pip_audit(self):
-        """Runs pip-audit for dependency vulnerabilities."""
+        """Runs pip-audit for dependency vulnerabilities, returns flat list of vulns."""
         cmd = self._get_cmd_path("pip-audit")
         print(f"[Scanner] Running {cmd} on {self.repo_path}...")
         try:
             req_path = os.path.join(self.repo_path, "requirements.txt")
             if not os.path.exists(req_path):
-                return {"error": "requirements.txt not found"}
+                return []
             result = subprocess.run(
                 [cmd, "-r", req_path, "--format", "json"],
                 capture_output=True,
                 text=True,
                 check=False
             )
-            return json.loads(result.stdout) if result.stdout else []
+            if not result.stdout:
+                return []
+            data = json.loads(result.stdout)
+            # pip-audit returns {"dependencies": [...], "fixes": [...]}
+            # flatten to list of {package, vuln_id, description} dicts
+            if isinstance(data, dict):
+                vulns = []
+                for dep in data.get("dependencies", []):
+                    for v in dep.get("vulns", []):
+                        vulns.append({
+                            "package": dep.get("name"),
+                            "version": dep.get("version"),
+                            "id": v.get("id"),
+                            "description": v.get("description", ""),
+                        })
+                return vulns
+            return data if isinstance(data, list) else []
         except Exception as e:
             return {"error": str(e)}
 
