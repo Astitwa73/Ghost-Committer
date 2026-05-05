@@ -9,6 +9,6 @@ docker>=7.1
 slack-sdk>=3.26
 FastAPI>=0.110
 uvicorn>=0.30
-anthropic>=0.25
+google-genai>=1.0
 requests>=2.31
 python-dotenv>=1.0

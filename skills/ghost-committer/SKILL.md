@@ -1,6 +1,6 @@
 ---
 name: ghost-committer
-description: Run the Ghost Committer autonomous tech debt agent on a local git repository. Scans for lint issues, dead code, and vulnerabilities; generates a fix plan via Claude AI; commits changes to a new branch; validates in a sandbox; and opens a GitHub PR with a Slack/Telegram morning digest. Use when asked to: "clean up tech debt", "run overnight code fixes", "scan and patch a repo", "run ghost committer", or "start the autonomous engineer on <repo>". Requires ANTHROPIC_API_KEY, GITHUB_TOKEN, and GITHUB_REPOSITORY in the environment.
+description: Run the Ghost Committer autonomous tech debt agent on a local git repository. Scans for lint issues, dead code, and vulnerabilities; generates a fix plan via Claude AI; commits changes to a new branch; validates in a sandbox; and opens a GitHub PR with a Slack/Telegram morning digest. Use when asked to: "clean up tech debt", "run overnight code fixes", "scan and patch a repo", "run ghost committer", or "start the autonomous engineer on <repo>". Requires GEMINI_API_KEY, GITHUB_TOKEN, and GITHUB_REPOSITORY in the environment.
 ---
 
 # Ghost Committer
@@ -30,7 +30,7 @@ Default `path` is `.` (the Ghost Committer repo itself). Pass an absolute path t
 ## Environment variables
 
 Required:
-- `ANTHROPIC_API_KEY` — Claude API key (planner uses `claude-3-5-sonnet-20240620`)
+- `GEMINI_API_KEY` — Google Gemini API key (planner uses `gemini-2.0-flash`; free tier at aistudio.google.com)
 - `GITHUB_TOKEN` — PAT with `repo` scope (for PR creation)
 - `GITHUB_REPOSITORY` — `owner/repo` format
 

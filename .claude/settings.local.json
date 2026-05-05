@@ -22,7 +22,11 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(type\\(d\\).__name__, '- first item:', str\\(d[0] if isinstance\\(d,list\\) else d\\)[:200]\\)\")",
       "Bash(echo \"EXIT:$?\")",
       "Bash(.venv/bin/pip-audit -r requirements.txt --format json)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(type\\(d\\).__name__\\); print\\(list\\(d.keys\\(\\)\\) if isinstance\\(d,dict\\) else d[:2]\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(type\\(d\\).__name__\\); print\\(list\\(d.keys\\(\\)\\) if isinstance\\(d,dict\\) else d[:2]\\)\")",
+      "Bash(openclaw health *)",
+      "Bash(openclaw cron *)",
+      "Bash(openclaw skills *)",
+      "Bash(.venv/bin/pip uninstall *)"
     ]
   }
 }
