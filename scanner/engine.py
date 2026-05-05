@@ -5,11 +5,14 @@ import os
 class CodeScanner:
     def __init__(self, repo_path):
         self.repo_path = repo_path
-        self.venv_bin = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".venv", "Scripts")
+        _root = os.path.dirname(os.path.dirname(__file__))
+        _bin = "Scripts" if os.name == "nt" else "bin"
+        self.venv_bin = os.path.join(_root, ".venv", _bin)
 
     def _get_cmd_path(self, cmd):
         """Helper to get the full path of a command in the venv."""
-        full_path = os.path.join(self.venv_bin, f"{cmd}.exe")
+        ext = ".exe" if os.name == "nt" else ""
+        full_path = os.path.join(self.venv_bin, f"{cmd}{ext}")
         return full_path if os.path.exists(full_path) else cmd
 
     def run_ruff(self):
@@ -18,7 +21,7 @@ class CodeScanner:
         print(f"[Scanner] Running {cmd} on {self.repo_path}...")
         try:
             result = subprocess.run(
-                [cmd, "check", self.repo_path, "--format", "json"],
+                [cmd, "check", self.repo_path, "--output-format", "json"],
                 capture_output=True,
                 text=True,
                 check=False
