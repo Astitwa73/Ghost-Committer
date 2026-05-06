@@ -201,17 +201,20 @@ class PlannerAgent:
         missing_docs = scan_report.get("missing_docstrings", [])
 
         prompt = "You are Ghost Committer, an autonomous AI developer agent. Create a concise, actionable plan to fix the following issues:\n\n"
-        if lint:
+        if lint and isinstance(lint, list):
             prompt += f"Linting Issues:\n{json.dumps(lint[:5], indent=2)}\n"
         if dead:
             prompt += f"Dead Code:\n{dead[:500]}\n"
-        if vulns:
+        if vulns and isinstance(vulns, list):
             prompt += f"Vulnerabilities:\n{json.dumps(vulns[:5], indent=2)}\n"
-        if todos:
+        elif isinstance(vulns, dict) and "error" in vulns:
+             prompt += f"Vulnerabilities Error: {vulns['error']}\n"
+
+        if todos and isinstance(todos, list):
             prompt += f"TODO Comments:\n{json.dumps(todos[:5], indent=2)}\n"
-        if complex_funcs:
+        if complex_funcs and isinstance(complex_funcs, list):
             prompt += f"Complex Functions:\n{json.dumps(complex_funcs[:5], indent=2)}\n"
-        if missing_docs:
+        if missing_docs and isinstance(missing_docs, list):
             prompt += f"Missing Docstrings:\n{json.dumps(missing_docs[:5], indent=2)}\n"
 
         prompt += "\nPlan of action:\n1."
@@ -223,17 +226,24 @@ class PlannerAgent:
 
     def generate_patch(self, file_content, issue_description):
         """Generates a patch for a specific file and issue."""
-        print(f"[Planner] Generating patch for issue: {issue_description[:50]}...")
+        # Truncate issue description to avoid token limits
+        truncated_issue = issue_description[:2000] if len(issue_description) > 2000 else issue_description
+        print(f"[Planner] Generating patch for issue: {truncated_issue[:50]}...")
         
         prompt = (
-            "You are Ghost Committer, an autonomous AI developer agent. "
-            "STRICT RULE: Output ONLY the complete updated file content. "
-            "NO markdown blocks, NO explanations, NO conversational filler. "
-            "If you include any text other than valid Python code, the system will crash. "
-            "Start your response immediately with the first line of code.\n\n"
-            f"--- Issue ---\n{issue_description}\n\n"
-            f"--- Original File Content ---\n{file_content}\n\n"
-            "--- Updated File Content ---\n"
+            "<|system|>\n"
+            "You are a Python Code Generator. Your task is to output the FULL, updated content of a Python file. "
+            "STRICT RULES:\n"
+            "1. Output ONLY the code.\n"
+            "2. DO NOT use markdown code blocks (no ```).\n"
+            "3. DO NOT include explanations, greetings, or conversational filler.\n"
+            "4. Maintain all existing imports and functionality unless specifically asked to change them.\n"
+            "5. If you fail to follow these rules, the system will break.\n"
+            "<|user|>\n"
+            f"--- ORIGINAL FILE CONTENT ---\n{file_content}\n\n"
+            f"--- ISSUE TO FIX ---\n{truncated_issue}\n\n"
+            "Provide the complete updated Python file content now.\n"
+            "<|assistant|>\n"
         )
 
         raw_patch = ""
@@ -250,7 +260,7 @@ class PlannerAgent:
             response = self.llm(
                 prompt,
                 max_tokens=2048,
-                stop=["</s>", "User:", "---"],
+                stop=["<|end|>", "<|user|>", "<|system|>", "---"],
                 echo=False
             )
             raw_patch = response['choices'][0]['text'].strip()
@@ -258,20 +268,32 @@ class PlannerAgent:
         if not raw_patch:
             return file_content
 
-        # Basic cleaning of LLM artifacts
+        # Advanced cleaning of LLM artifacts
         lines = raw_patch.splitlines()
         clean_lines = []
-        in_code_block = False
+        
+        # Stop words that indicate the LLM started talking instead of coding
+        stop_phrases = ["here is the", "updated file", "i have", "assistant:", "python", "```"]
         
         for line in lines:
-            if line.strip().startswith("```"):
-                in_code_block = not in_code_block
+            trimmed = line.strip().lower()
+            # Skip empty lines at the very beginning
+            if not clean_lines and not trimmed:
                 continue
-            if not in_code_block and ("Here is the updated" in line or "I have added" in line or "assistant" in line.lower()):
+            # If we hit a markdown block or conversational filler, skip it
+            if any(phrase in trimmed for phrase in stop_phrases) and len(trimmed) < 100:
                 continue
             clean_lines.append(line)
             
-        return "\n".join(clean_lines).strip()
+        # Join and perform a final check
+        final_code = "\n".join(clean_lines).strip()
+        
+        # If the LLM just repeated the prompt or returned something too short, fallback
+        if len(final_code) < 10:
+            print("[Planner] Warning: LLM returned empty or invalid patch. Falling back.")
+            return file_content
+            
+        return final_code
 
 
 if __name__ == "__main__":

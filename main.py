@@ -97,51 +97,75 @@ def run_ghost_committer(repo_path):
     if patcher.repo:
         branch = patcher.create_branch("chore/ghost-auto")
         if branch:
-            # Autonomous Patching: Try to fix the first missing docstring or TODO found
-            applied_fix = False
+            # Autonomous Patching: Fix ALL missing docstrings, TODOs, and Complex Functions
+            files_fixed = []
             
-            # 1. Try to fix missing docstrings (Prioritize test_dummy.py)
+            # 1. Fix ALL missing docstrings
             if report.get("missing_docstrings"):
-                # Sort to put test_dummy.py first if it exists in findings
-                doc_issues = sorted(report["missing_docstrings"], key=lambda x: 0 if "test_dummy.py" in x.get("file", "") else 1)
-                issue = doc_issues[0]
-                filename = issue.get("file") or issue.get("filename")
-                file_path = os.path.join(repo_path, filename)
-                if os.path.exists(file_path):
-                    with open(file_path, "r") as f:
-                        original_content = f.read()
-                    
-                    description = f"Add missing docstring to function '{issue.get('name', 'unknown')}' at line {issue['line']}."
-                    updated_content = planner.generate_patch(original_content, description)
-                    
-                    if updated_content and updated_content != original_content:
-                        with open(file_path, "w") as f:
-                            f.write(updated_content)
-                        print(f"[Main] Applied autonomous fix: {description}")
-                        applied_fix = True
+                print(f"[Main] Found {len(report['missing_docstrings'])} docstring issues. Patching...")
+                for issue in report["missing_docstrings"]:
+                    filename = issue.get("file") or issue.get("filename")
+                    file_path = os.path.join(repo_path, filename)
+                    if os.path.exists(file_path):
+                        with open(file_path, "r") as f:
+                            original_content = f.read()
+                        
+                        description = f"Add missing docstring to function '{issue.get('name', 'unknown')}' at line {issue['line']}."
+                        updated_content = planner.generate_patch(original_content, description)
+                        
+                        if updated_content and updated_content != original_content:
+                            with open(file_path, "w") as f:
+                                f.write(updated_content)
+                            print(f"[Main] Applied autonomous fix: {description}")
+                            if file_path not in files_fixed:
+                                files_fixed.append(file_path)
 
-            # 2. If no docstring fix, try to resolve a TODO
-            if not applied_fix and report.get("todos"):
-                issue = report["todos"][0]
-                filename = issue.get("file") or issue.get("filename")
-                file_path = os.path.join(repo_path, filename)
-                if os.path.exists(file_path):
-                    with open(file_path, "r") as f:
-                        original_content = f.read()
-                    
-                    description = f"Resolve TODO at line {issue['line']}: {issue.get('content', issue.get('text', ''))}"
-                    updated_content = planner.generate_patch(original_content, description)
-                    
-                    if updated_content and updated_content != original_content:
-                        with open(file_path, "w") as f:
-                            f.write(updated_content)
-                        print(f"[Main] Applied autonomous fix: {description}")
-                        applied_fix = True
+            # 2. Resolve ALL TODOs
+            if report.get("todos"):
+                print(f"[Main] Found {len(report['todos'])} TODOs. Patching...")
+                for issue in report["todos"]:
+                    filename = issue.get("file") or issue.get("filename")
+                    file_path = os.path.join(repo_path, filename)
+                    if os.path.exists(file_path):
+                        with open(file_path, "r") as f:
+                            original_content = f.read()
+                        
+                        description = f"Resolve TODO at line {issue['line']}: {issue.get('content', issue.get('text', ''))}"
+                        updated_content = planner.generate_patch(original_content, description)
+                        
+                        if updated_content and updated_content != original_content:
+                            with open(file_path, "w") as f:
+                                f.write(updated_content)
+                            print(f"[Main] Applied autonomous fix: {description}")
+                            if file_path not in files_fixed:
+                                files_fixed.append(file_path)
 
-            if not applied_fix:
+            # 3. Simplify ALL Complex Functions
+            if report.get("complex_functions"):
+                print(f"[Main] Found {len(report['complex_functions'])} complex functions. Patching...")
+                for func in report["complex_functions"]:
+                    filename = func.get("file") or func.get("filename")
+                    file_path = os.path.join(repo_path, filename)
+                    if os.path.exists(file_path):
+                        with open(file_path, "r") as f:
+                            original_content = f.read()
+                        
+                        description = f"Simplify the function '{func.get('name', 'unknown')}' (currently too complex with high nesting)."
+                        updated_content = planner.generate_patch(original_content, description)
+                        
+                        if updated_content and updated_content != original_content:
+                            with open(file_path, "w") as f:
+                                f.write(updated_content)
+                            print(f"[Main] Applied autonomous fix: {description}")
+                            if file_path not in files_fixed:
+                                files_fixed.append(file_path)
+
+            if not files_fixed:
                 print("[Main] No autonomous fixes applied. Falling back to log.")
                 with open(os.path.join(repo_path, "PATCH_LOG.md"), "a") as f:
                     f.write(f"[{datetime.datetime.now()}] Ran pipeline, no auto-patches applied.\n")
+            else:
+                print(f"[Main] Successfully patched {len(files_fixed)} unique files.")
             
             patcher.commit_changes("chore: apply autonomous overnight tech debt fixes")
             print(f"[Main] Changes committed to branch {branch}")
@@ -154,25 +178,56 @@ def run_ghost_committer(repo_path):
     val_result = validator.run_tests()
 
     retries_used = 0
+    # Keep track of the last file we tried to fix for self-correction
+    last_fixed_file = None
+    if files_fixed:
+        last_fixed_file = files_fixed[0]
+    elif report.get("missing_docstrings"):
+        doc_issues = sorted(report["missing_docstrings"], key=lambda x: 0 if "test_dummy.py" in x.get("file", "") else 1)
+        last_fixed_file = os.path.join(repo_path, doc_issues[0].get("file") or doc_issues[0].get("filename"))
+    elif report.get("todos"):
+        last_fixed_file = os.path.join(repo_path, report["todos"][0].get("file") or report["todos"][0].get("filename"))
+    elif report.get("complex_functions"):
+         last_fixed_file = os.path.join(repo_path, report["complex_functions"][0].get("file") or report["complex_functions"][0].get("filename"))
+
     while val_result.get("status") != "success" and retries_used < MAX_RETRIES:
         retries_used += 1
         print(f"\n--- Validation Failed (Attempt {retries_used}/{MAX_RETRIES}) ---")
         failure_output = val_result.get("output", val_result.get("message", "Unknown error"))
         print(f"Failure reason: {failure_output}")
 
-        # Append failure to report and re-plan
-        report["previous_failure"] = failure_output
-        print("[Main] Re-running planner with updated report...")
-        plan_result = planner.generate_plan(report)
-        print("\n--- Revised Plan ---")
-        print(plan_result["plan"])
+        # If tests failed, but we didn't fix anything, try to fix the test file or source file mentioned in error
+        if not last_fixed_file:
+             # Heuristic: Find first .py file mentioned in failure output
+             import re
+             matches = re.findall(r"([a-zA-Z0-9_\-]+\.py)", failure_output)
+             if matches:
+                 # Prefer source files over test files for correction if both exist
+                 source_matches = [m for m in matches if "test_" not in m]
+                 target = source_matches[0] if source_matches else matches[0]
+                 last_fixed_file = os.path.join(repo_path, target)
 
-        # Re-apply patch (simulate another fix iteration)
-        if branch and patcher.repo:
-            with open(os.path.join(repo_path, "dummy_fix.txt"), "a") as f:
-                f.write(f"Fixed a simulated tech debt issue (retry {retries_used}).\n")
-            patcher.commit_changes(f"chore: apply overnight tech debt fixes (retry {retries_used})")
-            print(f"[Main] Re-applied patch for retry {retries_used}")
+        if last_fixed_file and os.path.exists(last_fixed_file):
+            print(f"[Main] Self-Correction: Asking Planner to fix the failure in {os.path.basename(last_fixed_file)}...")
+            with open(last_fixed_file, "r") as f:
+                current_content = f.read()
+            
+            # Create a correction description
+            correction_desc = f"The code is failing tests with this error: {failure_output}. Please fix the code to resolve this error."
+            corrected_content = planner.generate_patch(current_content, correction_desc)
+            
+            if corrected_content and corrected_content != current_content:
+                with open(last_fixed_file, "w") as f:
+                    f.write(corrected_content)
+                print(f"[Main] Applied self-correction patch to {os.path.basename(last_fixed_file)}")
+                
+                # Commit the correction
+                if branch and patcher.repo:
+                    patcher.commit_changes(f"chore: self-correction for validation failure (retry {retries_used})")
+            else:
+                print("[Main] Planner could not generate a better fix.")
+        else:
+            print("[Main] No file to self-correct or file missing.")
 
         # Re-run validator
         print("\n--- Re-Validating ---")

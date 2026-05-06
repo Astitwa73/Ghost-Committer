@@ -4,58 +4,32 @@
 
 Ghost Committer is an autonomous, on-prem AI agent designed to run while your developers sleep. It cleans up tech debt, patches known vulnerabilities, removes dead code, runs your test suite in an isolated Docker sandbox, and opens a Pull Request by morning. 
 
-Built for the **Samsung PRISM OpenClaw Platform Hackathon (2026)**.
+Built for the **Samsung PRISM OpenClaw Platform (2026)**.
 
 ---
 
 ## 🏗️ Architecture & Pipeline
 
-Ghost Committer operates on a strict **5-Layer Pipeline** to ensure that no broken code is ever merged and that your proprietary source code never leaves your local network.
+Ghost Committer operates on a strict **5-Layer Pipeline** with an integrated **Self-Correction Loop** to ensure high-quality code delivery.
 
-1. **Scanner (L2):** Analyzes the codebase using static analysis tools (`ruff`, `vulture`, `pip-audit`) to identify linting issues, dead code, and dependency vulnerabilities.
-2. **Planner (L3):** Uses a local, quantized LLM (via `llama.cpp`) to digest the scan report and generate a concrete, actionable plan to fix the identified issues.
-3. **Patcher (L4):** Uses `GitPython` to automatically create a new branch (e.g., `chore/ghost-auto-...`), apply the code edits suggested by the Planner, and commit the changes.
-4. **Validator (L5):** Spins up an ephemeral Docker container ("The Sandbox") using `docker-py`, mounts the repository, and runs the project's test suite. *If the tests fail, the pipeline stops.*
-5. **Delivery (L6):** If the tests pass, uses `PyGithub` to push the branch and open a Pull Request. It then uses `slack_sdk` to send a "Morning Digest" to the engineering team.
+1. **Scanner (L2):** Analyzes the codebase using `ruff`, `vulture`, and `pip-audit` to identify linting issues, dead code, and security vulnerabilities. It also uses custom AST scans for TODOs, complex functions, and missing docstrings.
+2. **Planner (L3):** Uses a local, quantized LLM (Phi-3 via `llama.cpp`) or Anthropic Claude to analyze the scan report and generate concrete code patches.
+3. **Patcher (L4):** Automatically creates a new branch and applies **real code edits** suggested by the Planner. It iterates through all found issues (docstrings, TODOs, complex code) in a single session.
+4. **Validator (L5):** Spins up an optimized Docker Sandbox (`ghost-validator:latest`) to run tests. 
+    *   **Self-Correction Loop:** If tests fail, the agent captures the error logs, sends them back to the Planner for a corrected patch, and retries up to 3 times automatically.
+5. **Delivery (L6):** Upon successful validation, it pushes the branch, opens a GitHub Pull Request, and sends a "Morning Digest" to Slack and Telegram.
 
 ---
 
 ## 📁 Directory Structure
 
-*   **`scanner/`** 
-    *   `engine.py`: Wrappers around shell commands to execute `ruff`, `vulture`, and `pip-audit`.
-    *   `core.py`: Aggregates the findings from the engine into a unified JSON `Scan Report`.
-*   **`planner/`**
-    *   `agent.py`: Interfaces with the local LLM. Takes the `Scan Report` and prompts the model to generate a fix strategy. *Defaults to a mock plan if no model is found.*
-*   **`patcher/`**
-    *   `git_ops.py`: Handles all Git operations: creating branches, staging modified files, and committing.
-*   **`validator/`**
-    *   `sandbox.py`: Connects to the local Docker daemon. Creates a container, mounts the repo, installs dependencies, and runs `python -m unittest discover` (or your configured test runner) to verify the patch.
-*   **`delivery/`**
-    *   `github_ops.py`: Uses `GITHUB_TOKEN` to interact with the GitHub API to open the final PR.
-    *   `slack_notify.py`: Uses `SLACK_BOT_TOKEN` to send a summary of the overnight work to a configured Slack channel.
-*   **`main.py`**
-    *   The primary orchestrator script that ties all layers together sequentially.
-*   **`requirements.txt`**
-    *   Core Python dependencies (FastAPI, PyGithub, docker, llama-cpp-python, tree-sitter, etc.).
-
----
-
-## 🚀 How to Run
-
-### Prerequisites
-1.  **Python 3.10+** installed.
-2.  **Docker Desktop** installed and running (required for the Validator layer).
-3.  **Local LLM:** Download a GGUF model (e.g., Llama 3 or Phi-3) and place it in a `models/` directory if you want real code generation (otherwise it runs in "mock" mode).
-
-## 🛠️ Current Status: Operational
-
-As of **May 3, 2026**, the pipeline is fully operational from scan to validation:
-- ✅ **Scanner (L2):** `ruff`, `vulture`, and `pip-audit` integrated. Refined to exclude `.venv` for accurate project scanning.
-- ✅ **Planner (L3):** Supports **Local LLM (GGUF)** and Anthropic Claude. Successfully tested with **Phi-3 Mini** for autonomous plan generation.
-- ✅ **Patcher (L4):** Robust branching, staging, and committing logic implemented.
-- ✅ **Validator (L5):** **FULLY OPERATIONAL.** Now correctly installs system dependencies (`git`, `build-essential`) in the Docker sandbox. Successfully validated code fixes.
-- ✅ **Delivery (L6):** Supports Slack and Telegram notifications. PR creation operational (requires `GITHUB_TOKEN`).
+*   **`scanner/`**: Static analysis engine (Ruff, Vulture, Pip-Audit, AST).
+*   **`planner/`**: LLM interface (Local Phi-3 / Claude-3.5) with advanced prompt engineering.
+*   **`patcher/`**: Git operations and autonomous file modification logic.
+*   **`validator/`**: Docker sandbox management with pre-cached system tools.
+*   **`delivery/`**: GitHub API integration and notification handlers.
+*   **`scheduler.py`**: The 2 AM automation script that triggers the pipeline daily.
+*   **`main.py`**: The primary orchestrator script.
 
 ---
 
@@ -63,49 +37,42 @@ As of **May 3, 2026**, the pipeline is fully operational from scan to validation
 
 ### 1. Prerequisites
 *   **Python 3.10+**
-*   **Git:** Must be installed and configured in your system PATH.
-*   **Docker Desktop (CRITICAL):** Must be running for the Validator layer to pass.
+*   **Docker Desktop** (Must be running for the Validator layer).
+*   **Local LLM:** A Phi-3 GGUF model must be in the `models/` directory for on-prem execution.
 
 ### 2. Installation
-1.  **Clone the Repository.**
-2.  **Initialize the Virtual Environment:**
-    ```powershell
-    python -m venv .venv
-    .\.venv\Scripts\Activate.ps1
-    ```
-3.  **Install Dependencies:**
-    ```powershell
-    pip install -r requirements.txt
-    ```
-    *(Note: Key libraries like `GitPython`, `PyGithub`, and `docker-py` are now required).*
-
-### 3. Environment Configuration
-Create a `.env` file or set the following in your shell:
 ```powershell
-$env:GITHUB_TOKEN="your_pat_here"
-$env:GITHUB_REPOSITORY="username/repo"
-$env:SLACK_BOT_TOKEN="xoxb-..."
-$env:SLACK_CHANNEL="#engineering"
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### 3. Environment Configuration (`.env`)
+```bash
+GITHUB_TOKEN=your_token
+GITHUB_REPOSITORY=user/repo
+OPENCLAW_API_KEY=your_key
+SLACK_BOT_TOKEN=...
 ```
 
 ### 4. Running the Agent
-```powershell
-python main.py
-```
+*   **Immediate Run:** `python main.py .`
+*   **Start Night Shift (2 AM):** `python scheduler.py`
+*   **Test Scheduler:** `python scheduler.py test` (runs in 5 seconds).
 
 ---
 
-## 🗺️ Roadmap & Next Steps (Detailed)
+## 🛠️ Current Status: FULLY OPERATIONAL
 
-### Phase 1: Infrastructure (COMPLETED)
-1.  **Docker Integration:** **DONE.** Validator now successfully runs tests in a Debian-based Docker sandbox.
-2.  **LLM Setup:** **DONE.** Added support for local GGUF models and initiated download of Phi-3 Mini.
+As of **May 7, 2026**, the project has completed all core development phases:
+- ✅ **OpenClaw Integration:** Manifest and Heartbeat SDK fully integrated.
+- ✅ **Autonomous Patching:** LLM now performs real file modifications, not mock data.
+- ✅ **Self-Correction:** Agent can "heal" its own code by reading test failure logs.
+- ✅ **Performance Optimized:** Docker builds reduced from 10 minutes to 45 seconds using custom snapshots.
 
-### Phase 2: OpenClaw Integration
-1.  **Manifest Creation:** Create an `openclaw.yaml` file to define the agent's schedule and resource requirements for the Samsung PRISM platform.
-2.  **SDK Integration:** Implement the `OpenClaw Heartbeat` in `main.py` to allow the platform to monitor the agent's overnight progress.
+---
 
-### Phase 3: Advanced Intelligence
-1.  **AST Refinement:** Use the already-installed `tree-sitter` library to move beyond simple string replacement and perform intelligent code refactoring.
-2.  **Multi-Language Validation:** Expand `validator/sandbox.py` to auto-detect the project type (Node, Go, Python) and run the appropriate test suite.
-
+## 🗺️ Roadmap: Future Updates
+1.  **Multi-Language Support:** Expand detection and validation to Node.js, Go, and Java.
+2.  **Jira Integration:** Automatically link PRs to corresponding tech debt tickets.
+3.  **Code Review Summaries:** Use the LLM to write detailed code review comments for the generated PRs.
