@@ -1,0 +1,17 @@
+agent:
+  name: ghost-committer
+  version: 1.0.0
+  description: "Autonomous overnight engineer for tech debt"
+schedule:
+  cron: "0 2 * * *" # Run at 2 AM every day
+resources:
+  cpu: "2"
+  memory: "4Gi"
+  network: true
+env:
+  - name: GITHUB_TOKEN
+    type: secret
+  - name: SLACK_BOT_TOKEN
+    type: secret
+  - name: OPENCLAW_HEARTBEAT_URL
+    type: config

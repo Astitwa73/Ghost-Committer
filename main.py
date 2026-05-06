@@ -1,11 +1,26 @@
 import os
 import argparse
+import requests
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
+
+def send_openclaw_heartbeat(status: str, message: str):
+    """Sends a heartbeat to the OpenClaw platform."""
+    heartbeat_url = os.getenv("OPENCLAW_HEARTBEAT_URL")
+    if heartbeat_url:
+        try:
+            requests.post(
+                heartbeat_url,
+                json={"agent": "ghost-committer", "status": status, "message": message},
+                timeout=5
+            )
+        except Exception as e:
+            print(f"[OpenClaw] Heartbeat failed: {e}")
+
 
 from scanner.core import ScannerCore
 from planner.agent import PlannerAgent
@@ -20,6 +35,7 @@ MAX_RETRIES = 3
 
 def run_ghost_committer(repo_path):
     print(f"--- Waking up Ghost Committer for {repo_path} ---")
+    send_openclaw_heartbeat("starting", f"Ghost Committer waking up for {repo_path}")
 
     # Layer 2: Scanner
     scanner = ScannerCore(repo_path)
@@ -95,6 +111,7 @@ def run_ghost_committer(repo_path):
 
     if val_result.get("status") == "success":
         print("\n--- Success: Pipeline Green ---")
+        send_openclaw_heartbeat("success", "Pipeline Green. Delivering PR.")
         print("Ready for Delivery (PR creation).")
 
         # Layer 6: Delivery
@@ -127,6 +144,7 @@ def run_ghost_committer(repo_path):
                 )
     else:
         print("\n--- Failed: Pipeline Red ---")
+        send_openclaw_heartbeat("failed", "Pipeline Red. Tests failed.")
         print("Tests failed or sandbox error. PR will not be opened.")
         if "message" in val_result:
             print(f"Reason: {val_result['message']}")
