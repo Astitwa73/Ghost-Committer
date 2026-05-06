@@ -125,7 +125,10 @@ def run_ghost_committer(repo_path):
 
         # Layer 6: Delivery
         print("\n--- Delivery ---")
-        github_del = GitHubDelivery()
+        detected_repo = patcher.get_github_repo_name()
+        if detected_repo:
+            print(f"[Main] Detected GitHub repo: {detected_repo}")
+        github_del = GitHubDelivery(repo_name=detected_repo)
         slack = SlackNotifier()
         telegram = TelegramNotifier()
 

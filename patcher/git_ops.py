@@ -62,6 +62,22 @@ class GitPatcher:
             print(f"[Patcher] Git push failed: {e}")
             return False
 
+    def get_github_repo_name(self):
+        """Returns 'owner/repo' from the origin remote URL, or None if not a GitHub remote."""
+        if not self.repo:
+            return None
+        try:
+            url = self.repo.remotes.origin.url
+            # handles both https://github.com/owner/repo.git and git@github.com:owner/repo.git
+            if "github.com" not in url:
+                return None
+            url = url.rstrip("/").removesuffix(".git")
+            if url.startswith("git@"):
+                return url.split("github.com:")[-1]
+            return url.split("github.com/")[-1]
+        except Exception:
+            return None
+
 if __name__ == "__main__":
     # Test script assumes it's run inside a git repository
     patcher = GitPatcher(".")

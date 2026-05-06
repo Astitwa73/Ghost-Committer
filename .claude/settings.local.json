@@ -32,7 +32,27 @@
       "Bash(git checkout *)",
       "Bash(git branch *)",
       "Bash(git stash *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(openclaw --version)",
+      "Bash(git remote *)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -m json.tool ~/.openclaw/openclaw.json)",
+      "Bash(openclaw models *)",
+      "Bash(curl -s http://127.0.0.1:18789/)",
+      "Bash(curl -s http://127.0.0.1:18789/v1/models)",
+      "Bash(curl -s http://127.0.0.1:18789/api/v1/models)",
+      "Bash(curl -s http://127.0.0.1:18789/openai/v1/models)",
+      "Bash(curl -sv http://127.0.0.1:18789/v1/chat/completions)",
+      "Bash(python3 -m json.tool ~/.openclaw/plugins/installs.json)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('models', d.get\\('llm', d.get\\('providers', {}\\)\\)\\), indent=2\\)\\)\")",
+      "Bash(cat /opt/homebrew/lib/node_modules/openclaw/dist/extensions/kimi-coding/openclaw.plugin.json 2>/dev/null | python3 -m json.tool | head -40)",
+      "Read(//opt/homebrew/lib/node_modules/openclaw/dist/extensions/kimi-coding/**)",
+      "Bash(grep -o '\"https://[^\"]*\"' /opt/homebrew/lib/node_modules/openclaw/dist/extensions/opencode/index.js 2>/dev/null | sort -u)",
+      "Read(//opt/homebrew/lib/node_modules/openclaw/dist/extensions/opencode/**)",
+      "Bash(node -e \"const s = require\\('fs'\\).readFileSync\\('/opt/homebrew/lib/node_modules/openclaw/dist/extensions/kimi-coding/index.js','utf8'\\); const m = s.match\\(/api\\\\.kimi|api\\\\.moonshot|moonshot\\\\.cn|kimi\\\\.com\\\\/\\(?!code\\)|opencode\\\\.ai/g\\); console.log\\([...new Set\\(m\\)]\\)\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://go.opencode.ai/v1/models -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.opencode.ai/v1/models\" -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://opencode.ai/api/v1/models\" -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")"
     ]
   }
 }
