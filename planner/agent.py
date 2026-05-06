@@ -137,8 +137,11 @@ class PlannerAgent:
             ],
             max_tokens=1024,
         )
-        plan_text = response.choices[0].message.content.strip()
-        return {"status": "success", "plan": plan_text, "source": self.model_name}
+        content = response.choices[0].message.content
+        if not content:
+            # reasoning-only response (all tokens consumed by thinking); fall back
+            return self._generate_mock_plan(scan_report)
+        return {"status": "success", "plan": content.strip(), "source": self.model_name}
 
     def _truncate_report(self, scan_report):
         truncated = {

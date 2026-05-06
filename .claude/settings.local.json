@@ -52,7 +52,15 @@
       "Bash(node -e \"const s = require\\('fs'\\).readFileSync\\('/opt/homebrew/lib/node_modules/openclaw/dist/extensions/kimi-coding/index.js','utf8'\\); const m = s.match\\(/api\\\\.kimi|api\\\\.moonshot|moonshot\\\\.cn|kimi\\\\.com\\\\/\\(?!code\\)|opencode\\\\.ai/g\\); console.log\\([...new Set\\(m\\)]\\)\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" https://go.opencode.ai/v1/models -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://api.opencode.ai/v1/models\" -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://opencode.ai/api/v1/models\" -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://opencode.ai/api/v1/models\" -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")",
+      "Bash(curl -s -X POST https://api.opencode.ai/v1/chat/completions -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y' -H 'Content-Type: application/json' -d '{\"model\":\"opencode-go/kimi-k2.6\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi\"}],\"max_tokens\":20}')",
+      "Bash(curl -s \"https://api.opencode.ai/v1/models\" -H \"Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y\")",
+      "Bash(node -e ' *)",
+      "Bash(grep -r \"opencode\\\\.ai\\\\|go\\\\.opencode\\\\|zen\\\\.opencode\" /opt/homebrew/lib/node_modules/openclaw/dist/ --include=\"*.js\" -l 2>/dev/null | head -5)",
+      "Read(//opt/homebrew/lib/node_modules/openclaw/dist/**)",
+      "Bash(curl -s -X POST https://opencode.ai/zen/go/v1/chat/completions -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y' -H 'Content-Type: application/json' -d '{\"model\":\"opencode-go/kimi-k2.6\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi in one word\"}],\"max_tokens\":10}')",
+      "Bash(curl -s https://opencode.ai/zen/go/v1/models -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y')",
+      "Bash(curl -s -X POST https://opencode.ai/zen/go/v1/chat/completions -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y' -H 'Content-Type: application/json' -d '{\"model\":\"kimi-k2.6\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi in one word\"}],\"max_tokens\":10}')"
     ]
   }
 }
