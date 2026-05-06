@@ -26,7 +26,13 @@
       "Bash(openclaw health *)",
       "Bash(openclaw cron *)",
       "Bash(openclaw skills *)",
-      "Bash(.venv/bin/pip uninstall *)"
+      "Bash(.venv/bin/pip uninstall *)",
+      "Bash(find /Users/admin -name \"*.gguf\" 2>/dev/null)",
+      "Read(//Users/admin/**)",
+      "Bash(git checkout *)",
+      "Bash(git branch *)",
+      "Bash(git stash *)",
+      "Bash(git add *)"
     ]
   }
 }

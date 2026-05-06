@@ -35,19 +35,31 @@ class GitPatcher:
             return False
 
         try:
-            # Check if there are changes to commit
             if not self.repo.is_dirty(untracked_files=True):
                 print("[Patcher] No changes detected to commit.")
                 return False
 
             print("[Patcher] Staging changes...")
             self.git.add(A=True)
-            
+
             print(f"[Patcher] Committing with message: '{message}'")
             self.repo.index.commit(message)
             return True
         except GitCommandError as e:
             print(f"[Patcher] Git error during commit: {e}")
+            return False
+
+    def push_branch(self, branch_name):
+        """Pushes the branch to origin so GitHub can create a PR against it."""
+        if not self.repo:
+            return False
+        try:
+            print(f"[Patcher] Pushing branch {branch_name} to origin...")
+            self.git.push("origin", branch_name)
+            print(f"[Patcher] Branch {branch_name} pushed successfully.")
+            return True
+        except GitCommandError as e:
+            print(f"[Patcher] Git push failed: {e}")
             return False
 
 if __name__ == "__main__":
