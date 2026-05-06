@@ -23,7 +23,7 @@ class SandboxValidator:
             print(f"[Validator] Docker unavailable: {e}. Will use local fallback.")
             self.client = None
 
-    def run_tests(self, image="python:3.11-slim", test_command="python -m unittest discover"):
+    def run_tests(self, image="python:3.11-slim", test_command="python -m unittest discover -s . -p 'test_*.py'"):
         """Spins up a sandbox and runs the test suite, with local fallback."""
         if self.client:
             return self._run_docker_tests(image, test_command)
@@ -41,8 +41,8 @@ class SandboxValidator:
         volumes = {self.repo_path: {"bind": "/app", "mode": "rw"}}
         full_cmd = (
             "sh -c 'cd /app && "
-            "pip install -r requirements.txt --quiet 2>/dev/null; "
-            "python -m unittest discover -s . -p test_*.py'"
+            "python -m pip install -r requirements.txt --quiet && "
+            f"{test_command}'"
         )
         container = None
         try:

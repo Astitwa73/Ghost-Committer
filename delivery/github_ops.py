@@ -23,10 +23,18 @@ class GitHubDelivery:
             
         try:
             repo = self.g.get_repo(self.repo_name)
-            
-            # In a real scenario, you must 'git push' the branch to remote before this step.
-            # The GitPatcher would handle the `git push origin <branch>`.
-            
+
+            try:
+                repo.get_branch(base_branch)
+            except GithubException:
+                return {
+                    "status": "error",
+                    "message": (
+                        f"Base branch '{base_branch}' was not found in {self.repo_name}. "
+                        "Check GITHUB_REPOSITORY and GITHUB_BASE_BRANCH."
+                    ),
+                }
+
             pr = repo.create_pull(
                 title=title,
                 body=body,

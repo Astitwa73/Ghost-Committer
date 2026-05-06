@@ -1,0 +1,3 @@
+# Optional local LLM backend.
+# Install only if you have a GGUF model and native build tools ready.
+llama-cpp-python>=0.2

@@ -72,6 +72,10 @@ def run_ghost_committer(repo_path):
     print("\n--- Patching ---")
     patcher = GitPatcher(repo_path)
     branch = None
+    base_branch = os.environ.get("GITHUB_BASE_BRANCH") or patcher.start_branch or "main"
+    if base_branch.startswith("chore/ghost-auto-"):
+        base_branch = os.environ.get("GITHUB_BASE_BRANCH", "main")
+    print(f"[Main] Pull request base branch: {base_branch}")
     if patcher.repo:
         branch = patcher.create_branch("chore/ghost-auto")
         if branch:
@@ -126,13 +130,42 @@ def run_ghost_committer(repo_path):
         github_del = GitHubDelivery()
         slack = SlackNotifier()
         telegram = TelegramNotifier()
+        origin_repo = patcher.remote_repo_name() if patcher.repo else None
+        if origin_repo and github_del.repo_name and github_del.repo_name != origin_repo:
+            print(
+                f"[Delivery] GITHUB_REPOSITORY={github_del.repo_name} does not match "
+                f"origin={origin_repo}; using origin."
+            )
+            github_del.repo_name = origin_repo
+        elif origin_repo and not github_del.repo_name:
+            github_del.repo_name = origin_repo
 
         if branch:
-            pr_res = github_del.create_pull_request(
-                branch_name=branch,
-                title="Chore: Overnight Tech Debt Cleanup",
-                body=plan_result["plan"]
-            )
+            if github_del.token and github_del.repo_name:
+                push_res = patcher.push_branch(
+                    branch,
+                    repo_name=github_del.repo_name,
+                    token=github_del.token,
+                )
+                if push_res.get("status") != "success":
+                    pr_res = {
+                        "status": "error",
+                        "message": f"Branch push failed: {push_res.get('message')}",
+                    }
+                else:
+                    pr_res = github_del.create_pull_request(
+                        branch_name=branch,
+                        title="Chore: Overnight Tech Debt Cleanup",
+                        body=plan_result["plan"],
+                        base_branch=base_branch,
+                    )
+            else:
+                pr_res = github_del.create_pull_request(
+                    branch_name=branch,
+                    title="Chore: Overnight Tech Debt Cleanup",
+                    body=plan_result["plan"],
+                    base_branch=base_branch,
+                )
 
             if pr_res.get("status") in ["success", "dry_run"]:
                 stats = {
