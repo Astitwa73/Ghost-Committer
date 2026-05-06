@@ -135,7 +135,7 @@ class PlannerAgent:
                 {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": user_content},
             ],
-            max_tokens=1024,
+            max_tokens=4096,
         )
         content = response.choices[0].message.content
         if not content:
