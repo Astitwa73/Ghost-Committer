@@ -16,6 +16,7 @@ def complex_function(a, b, c):
         return 0
 
 def missing_docstring_function():
+    """Fixed: Added missing docstring."""
     return "I have no docstring"
 
 class TestDummy(unittest.TestCase):
