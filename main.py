@@ -97,27 +97,53 @@ def run_ghost_committer(repo_path):
     if patcher.repo:
         branch = patcher.create_branch("chore/ghost-auto")
         if branch:
-            # Perform a real code edit: Add docstring to test_dummy.py
-            dummy_file = os.path.join(repo_path, "test_dummy.py")
-            if os.path.exists(dummy_file):
-                with open(dummy_file, "r") as f:
-                    content = f.read()
-                
-                # Simple replacement to add a docstring
-                if 'def missing_docstring_function():\n    return' in content:
-                    print("[Main] Applying real fix: Adding docstring to test_dummy.py")
-                    new_content = content.replace(
-                        'def missing_docstring_function():\n    return',
-                        'def missing_docstring_function():\n    """Fixed: Added missing docstring."""\n    return'
-                    )
-                    with open(dummy_file, "w") as f:
-                        f.write(new_content)
-                else:
-                    # Fallback log if already fixed
-                    with open(os.path.join(repo_path, "PATCH_LOG.md"), "a") as f:
-                        f.write(f"[{datetime.datetime.now()}] Already applied docstring fix.\n")
+            # Autonomous Patching: Try to fix the first missing docstring or TODO found
+            applied_fix = False
             
-            patcher.commit_changes("chore: apply real overnight tech debt fixes")
+            # 1. Try to fix missing docstrings (Prioritize test_dummy.py)
+            if report.get("missing_docstrings"):
+                # Sort to put test_dummy.py first if it exists in findings
+                doc_issues = sorted(report["missing_docstrings"], key=lambda x: 0 if "test_dummy.py" in x.get("file", "") else 1)
+                issue = doc_issues[0]
+                filename = issue.get("file") or issue.get("filename")
+                file_path = os.path.join(repo_path, filename)
+                if os.path.exists(file_path):
+                    with open(file_path, "r") as f:
+                        original_content = f.read()
+                    
+                    description = f"Add missing docstring to function '{issue.get('name', 'unknown')}' at line {issue['line']}."
+                    updated_content = planner.generate_patch(original_content, description)
+                    
+                    if updated_content and updated_content != original_content:
+                        with open(file_path, "w") as f:
+                            f.write(updated_content)
+                        print(f"[Main] Applied autonomous fix: {description}")
+                        applied_fix = True
+
+            # 2. If no docstring fix, try to resolve a TODO
+            if not applied_fix and report.get("todos"):
+                issue = report["todos"][0]
+                filename = issue.get("file") or issue.get("filename")
+                file_path = os.path.join(repo_path, filename)
+                if os.path.exists(file_path):
+                    with open(file_path, "r") as f:
+                        original_content = f.read()
+                    
+                    description = f"Resolve TODO at line {issue['line']}: {issue.get('content', issue.get('text', ''))}"
+                    updated_content = planner.generate_patch(original_content, description)
+                    
+                    if updated_content and updated_content != original_content:
+                        with open(file_path, "w") as f:
+                            f.write(updated_content)
+                        print(f"[Main] Applied autonomous fix: {description}")
+                        applied_fix = True
+
+            if not applied_fix:
+                print("[Main] No autonomous fixes applied. Falling back to log.")
+                with open(os.path.join(repo_path, "PATCH_LOG.md"), "a") as f:
+                    f.write(f"[{datetime.datetime.now()}] Ran pipeline, no auto-patches applied.\n")
+            
+            patcher.commit_changes("chore: apply autonomous overnight tech debt fixes")
             print(f"[Main] Changes committed to branch {branch}")
         else:
             print("[Main] Failed to create branch.")

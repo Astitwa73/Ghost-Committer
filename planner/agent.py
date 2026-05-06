@@ -43,7 +43,8 @@ class PlannerAgent:
         # Fall back to local LLM
         if not self.client and Llama and os.path.exists(self.model_path):
             print(f"[Planner] Loading local model from {self.model_path}...")
-            self.llm = Llama(model_path=self.model_path, n_ctx=2048, verbose=False)
+            # Increase context to 4096 for better file handling
+            self.llm = Llama(model_path=self.model_path, n_ctx=4096, verbose=False)
         elif not self.client:
             if not self.api_key:
                 print("[Planner] ANTHROPIC_API_KEY not found.")
@@ -218,41 +219,40 @@ class PlannerAgent:
 
     def _generate_mock_plan(self, scan_report):
         """Generate a mock plan when APIs are unavailable."""
-        findings = scan_report.get("findings", {})
-        lint = findings.get("lint", [])
-        dead = findings.get("dead_code", "")
-        vulns = findings.get("vulnerabilities", [])
-        todos = scan_report.get("todos", [])
-        complex_functions = scan_report.get("complex_functions", [])
-        missing_docstrings = scan_report.get("missing_docstrings", [])
-        previous_failure = scan_report.get("previous_failure")
+        # ... rest of mock plan ...
 
-        plan_lines = ["MOCK PLAN:"]
-        step = 1
+    def generate_patch(self, file_content, issue_description):
+        """Generates a patch for a specific file and issue."""
+        print(f"[Planner] Generating patch for issue: {issue_description[:50]}...")
+        
+        prompt = (
+            "You are Ghost Committer, an autonomous AI developer agent. "
+            "Given the file content and an issue description, provide the UPDATED file content. "
+            "Output ONLY the complete updated file content. Do not include markdown code blocks or explanations.\n\n"
+            f"--- Issue ---\n{issue_description}\n\n"
+            f"--- Original File Content ---\n{file_content}\n\n"
+            "--- Updated File Content ---\n"
+        )
 
-        if lint:
-            plan_lines.append(f"{step}. Fix {len(lint)} lint issues.")
-            step += 1
-        if dead:
-            plan_lines.append(f"{step}. Remove dead code.")
-            step += 1
-        if vulns:
-            plan_lines.append(f"{step}. Update dependencies to patch {len(vulns)} vulnerabilities.")
-            step += 1
-        if todos:
-            plan_lines.append(f"{step}. Resolve {len(todos)} TODO/FIXME comments.")
-            step += 1
-        if complex_functions:
-            plan_lines.append(f"{step}. Simplify {len(complex_functions)} deeply nested functions.")
-            step += 1
-        if missing_docstrings:
-            plan_lines.append(f"{step}. Add docstrings to {len(missing_docstrings)} functions.")
-            step += 1
-        if previous_failure:
-            plan_lines.append(f"{step}. Address previous test failure before re-applying fixes.")
-            step += 1
-
-        return {"status": "mock", "plan": "\n".join(plan_lines), "source": "mock"}
+        if self.client:
+             response = self.client.messages.create(
+                model="claude-3-5-sonnet-20240620",
+                max_tokens=2048,
+                system="Output only raw file content.",
+                messages=[{"role": "user", "content": prompt}],
+            )
+             return response.content[0].text.strip()
+        
+        if self.llm:
+            response = self.llm(
+                prompt,
+                max_tokens=2048,
+                stop=["</s>", "User:"],
+                echo=False
+            )
+            return response['choices'][0]['text'].strip()
+        
+        return file_content # Fallback to original
 
 
 if __name__ == "__main__":
