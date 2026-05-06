@@ -2,6 +2,13 @@ import os
 import argparse
 import requests
 
+# Monkeypatch cmdop.exceptions before importing openclaw
+import cmdop.exceptions
+if not hasattr(cmdop.exceptions, "TimeoutError"):
+    cmdop.exceptions.TimeoutError = cmdop.exceptions.ConnectionTimeoutError
+
+from openclaw import OpenClaw
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -9,17 +16,36 @@ except ImportError:
     pass
 
 def send_openclaw_heartbeat(status: str, message: str):
-    """Sends a heartbeat to the OpenClaw platform."""
+    """Sends a heartbeat to the OpenClaw platform using the SDK."""
+    api_key = os.getenv("OPENCLAW_API_KEY")
+    server_url = os.getenv("OPENCLAW_SERVER_URL")
+    
+    # Direct SDK linkage
+    if api_key:
+        try:
+            print(f"[OpenClaw] Connecting via SDK to send status: {status}")
+            client = OpenClaw.remote(api_key=api_key, server=server_url or "grpc.cmdop.com:443")
+            # Using SDK to log agent activity
+            client.agent.run(f"Status Update: {status} - {message}", session_id="ghost-committer-session")
+            client.close()
+            return
+        except Exception as e:
+            print(f"[OpenClaw] SDK Heartbeat failed: {e}")
+    
+    # Fallback to direct REST if SDK fails or no API key
     heartbeat_url = os.getenv("OPENCLAW_HEARTBEAT_URL")
     if heartbeat_url:
         try:
+            print(f"[OpenClaw] Sending REST heartbeat: {status} - {message}")
             requests.post(
                 heartbeat_url,
                 json={"agent": "ghost-committer", "status": status, "message": message},
                 timeout=5
             )
         except Exception as e:
-            print(f"[OpenClaw] Heartbeat failed: {e}")
+            print(f"[OpenClaw] REST Heartbeat failed: {e}")
+    else:
+        print(f"[OpenClaw] Warning: OpenClaw credentials/URL not set. Skipping heartbeat: {status}")
 
 
 from scanner.core import ScannerCore
