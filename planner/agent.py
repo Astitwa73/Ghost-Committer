@@ -227,13 +227,16 @@ class PlannerAgent:
         
         prompt = (
             "You are Ghost Committer, an autonomous AI developer agent. "
-            "Given the file content and an issue description, provide the UPDATED file content. "
-            "Output ONLY the complete updated file content. Do not include markdown code blocks or explanations.\n\n"
+            "STRICT RULE: Output ONLY the complete updated file content. "
+            "NO markdown blocks, NO explanations, NO conversational filler. "
+            "If you include any text other than valid Python code, the system will crash. "
+            "Start your response immediately with the first line of code.\n\n"
             f"--- Issue ---\n{issue_description}\n\n"
             f"--- Original File Content ---\n{file_content}\n\n"
             "--- Updated File Content ---\n"
         )
 
+        raw_patch = ""
         if self.client:
              response = self.client.messages.create(
                 model="claude-3-5-sonnet-20240620",
@@ -241,18 +244,34 @@ class PlannerAgent:
                 system="Output only raw file content.",
                 messages=[{"role": "user", "content": prompt}],
             )
-             return response.content[0].text.strip()
+             raw_patch = response.content[0].text.strip()
         
-        if self.llm:
+        elif self.llm:
             response = self.llm(
                 prompt,
                 max_tokens=2048,
-                stop=["</s>", "User:"],
+                stop=["</s>", "User:", "---"],
                 echo=False
             )
-            return response['choices'][0]['text'].strip()
+            raw_patch = response['choices'][0]['text'].strip()
         
-        return file_content # Fallback to original
+        if not raw_patch:
+            return file_content
+
+        # Basic cleaning of LLM artifacts
+        lines = raw_patch.splitlines()
+        clean_lines = []
+        in_code_block = False
+        
+        for line in lines:
+            if line.strip().startswith("```"):
+                in_code_block = not in_code_block
+                continue
+            if not in_code_block and ("Here is the updated" in line or "I have added" in line or "assistant" in line.lower()):
+                continue
+            clean_lines.append(line)
+            
+        return "\n".join(clean_lines).strip()
 
 
 if __name__ == "__main__":
