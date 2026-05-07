@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def setup_test_repo():
+    """Create a private GitHub test repository and seed it with sample tech debt files."""
     token = os.getenv("GITHUB_TOKEN")
     if not token:
         print("Error: GITHUB_TOKEN not found in .env")
@@ -24,6 +25,7 @@ def setup_test_repo():
         content = """# Tech Debt Sample File
 
 def complex_math(a, b, c):
+    \"\"\"Calculate a complex mathematical result based on inputs a, b, and c.\"\"\"
     # This is a messy function with no docstring
     if a > 0:
         if b > 0:
@@ -41,9 +43,11 @@ def complex_math(a, b, c):
 
 # TODO: Refactor this function to be simpler
 def legacy_helper(x):
+    \"\"\"Increment the input value by one.\"\"\"
     return x + 1
 
 def function_with_no_docstring():
+    \"\"\"Return True.\"\"\"
     return True
 """
         repo.create_file("debt_sample.py", "initial commit with tech debt", content)

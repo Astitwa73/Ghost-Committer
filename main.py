@@ -103,9 +103,20 @@ MAX_RETRIES = 3
 
 
 def run_ghost_committer(repo_path, tmpdir_to_cleanup=None):
+    """Run the full Ghost Committer pipeline on a repository.
+
+    This function orchestrates scanning, planning, autonomous patching,
+    validation with a self-correction retry loop, and delivery of a pull
+    request for overnight tech-debt cleanup.
+
+    Args:
+        repo_path: Path to the repository to process.
+        tmpdir_to_cleanup: Optional temporary directory to remove after
+            the pipeline finishes or fails.
+    """
     print(f"--- Waking up Ghost Committer for {repo_path} ---")
 
-    # Build the authenticated push URL from .env — all git pushes MUST target this repo
+    # Build the authenticated push url from .env — all git pushes MUST target this repo
     env_repo = os.environ.get("GITHUB_REPOSITORY")
     github_token = os.environ.get("GITHUB_TOKEN")
     if not env_repo:

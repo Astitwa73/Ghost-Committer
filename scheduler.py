@@ -7,6 +7,7 @@ from datetime import datetime
 
 
 def wake_up_ghost():
+    """Run main.py to wake up the Ghost Committer and print its output/errors."""
     print(f"[{datetime.now()}] Ghost Committer is waking up for the night shift...")
     try:
         result = subprocess.run(
@@ -26,6 +27,7 @@ def wake_up_ghost():
 
 
 def start_scheduler():
+    """Start the scheduler to run the Ghost Committer daily at 02:00 AM."""
     print("--- Ghost Scheduler Started ---")
     print("Target: 02:00 AM every night.")
     schedule.every().day.at("02:00").do(wake_up_ghost)

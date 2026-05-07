@@ -10,6 +10,11 @@ except ImportError:
 
 class SandboxValidator:
     def __init__(self, repo_path):
+        """Initialize the sandbox validator with a repository path.
+
+        Args:
+            repo_path (str): Path to the repository to validate.
+        """
         self.repo_path = os.path.abspath(repo_path)
         self.client = None
         if docker is None:

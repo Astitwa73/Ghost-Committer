@@ -29,6 +29,7 @@ class PlannerAgent:
     BACKOFF_MULTIPLIER = 2.0
 
     def __init__(self, model_path=None):
+        """Initialize the PlannerAgent with model path and API configuration."""
         self.model_path = model_path or _DEFAULT_MODEL_PATH
         self.llm = None
         self.client = None
@@ -38,7 +39,7 @@ class PlannerAgent:
 
         if OpenAI and self.api_key:
             try:
-                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=60.0)
                 print(f"[Planner] OpenAI-compatible client initialized (model={self.model_id}).")
             except Exception as e:
                 print(f"[Planner] Failed to initialize OpenAI client: {e}")
@@ -291,7 +292,6 @@ class PlannerAgent:
             safe_content = file_content[:2000] if len(file_content) > 2000 else file_content
             prompt = (
                 "<|user|>\n"
-                "You are a Python Code Generator. Output ONLY the full updated file content. "
                 "No markdown, no explanations.\n\n"
                 f"--- ORIGINAL FILE CONTENT ---\n{safe_content}\n\n"
                 f"--- ISSUE TO FIX ---\n{truncated_issue}\n\n"
@@ -315,7 +315,6 @@ class PlannerAgent:
 
         lines = raw_patch.splitlines()
         clean_lines = []
-        stop_phrases = ["here is the", "updated file", "i have", "assistant:", "```"]
 
         for line in lines:
             trimmed = line.strip().lower()
