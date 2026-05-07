@@ -1,3 +1,4 @@
+import os
 import datetime
 from git import Repo, GitCommandError
 
@@ -48,6 +49,35 @@ class GitPatcher:
         except GitCommandError as e:
             print(f"[Patcher] Git error during commit: {e}")
             return False
+
+    def push_branch(self, branch_name):
+        """Pushes the branch to origin so GitHub can create a PR against it."""
+        if not self.repo:
+            return False
+        try:
+            print(f"[Patcher] Pushing branch {branch_name} to origin...")
+            self.git.push("origin", branch_name)
+            print(f"[Patcher] Branch {branch_name} pushed successfully.")
+            return True
+        except GitCommandError as e:
+            print(f"[Patcher] Git push failed: {e}")
+            return False
+
+    def get_github_repo_name(self):
+        """Returns 'owner/repo' from the origin remote URL, or None if not a GitHub remote."""
+        if not self.repo:
+            return None
+        try:
+            url = self.repo.remotes.origin.url
+            if "github.com" not in url:
+                return None
+            url = url.rstrip("/").removesuffix(".git")
+            if url.startswith("git@"):
+                return url.split("github.com:")[-1]
+            return url.split("github.com/")[-1]
+        except Exception:
+            return None
+
 
 if __name__ == "__main__":
     # Test script assumes it's run inside a git repository

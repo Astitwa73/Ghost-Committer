@@ -6,9 +6,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    from anthropic import Anthropic, RateLimitError, APIError
+    from openai import OpenAI, RateLimitError, APIError
 except ImportError:
-    Anthropic = None
+    OpenAI = None
     RateLimitError = Exception
     APIError = Exception
 
@@ -17,37 +17,39 @@ try:
 except ImportError:
     Llama = None
 
+_PLANNER_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_PLANNER_DIR)
+_DEFAULT_MODEL_PATH = os.path.join(_PROJECT_ROOT, "models", "Phi-3-mini-4k-instruct-q4.gguf")
+
 
 class PlannerAgent:
-    # Rate limiting configuration
     MAX_RETRIES = 5
-    INITIAL_BACKOFF = 1.0  # seconds
-    MAX_BACKOFF = 60.0  # seconds
+    INITIAL_BACKOFF = 1.0
+    MAX_BACKOFF = 60.0
     BACKOFF_MULTIPLIER = 2.0
 
-    def __init__(self, model_path="models/phi-3-mini-4k-instruct.Q4_K_M.gguf"):
-        self.model_path = model_path
+    def __init__(self, model_path=None):
+        self.model_path = model_path or _DEFAULT_MODEL_PATH
         self.llm = None
         self.client = None
-        self.api_key = os.environ.get("ANTHROPIC_API_KEY")
+        self.model_id = os.environ.get("OPENCODE_MODEL", "kimi-k2.6")
+        self.api_key = os.environ.get("OPENCODE_API_KEY")
+        self.base_url = os.environ.get("OPENCODE_BASE_URL", "https://opencode.ai/zen/go/v1")
 
-        # Try Anthropic Claude first
-        if Anthropic and self.api_key:
+        if OpenAI and self.api_key:
             try:
-                self.client = Anthropic(api_key=self.api_key)
-                print("[Planner] Anthropic client initialized.")
+                self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+                print(f"[Planner] OpenAI-compatible client initialized (model={self.model_id}).")
             except Exception as e:
-                print(f"[Planner] Failed to initialize Anthropic client: {e}")
+                print(f"[Planner] Failed to initialize OpenAI client: {e}")
                 self.client = None
 
-        # Fall back to local LLM
         if not self.client and Llama and os.path.exists(self.model_path):
             print(f"[Planner] Loading local model from {self.model_path}...")
-            # Increase context to 4096 for better file handling
             self.llm = Llama(model_path=self.model_path, n_ctx=4096, verbose=False)
         elif not self.client:
             if not self.api_key:
-                print("[Planner] ANTHROPIC_API_KEY not found.")
+                print("[Planner] OPENCODE_API_KEY not found.")
             print("[Planner] Running in mock mode.")
 
     def generate_plan(self, scan_report):
@@ -62,36 +64,36 @@ class PlannerAgent:
         missing_docstrings = scan_report.get("missing_docstrings", [])
         previous_failure = scan_report.get("previous_failure")
 
+        # Treat pip-audit error dicts as "no real vulnerabilities"
+        real_vulns = vulnerabilities if isinstance(vulnerabilities, list) and vulnerabilities else []
+
         has_issues = any([
-            lint_issues, dead_code, vulnerabilities,
+            lint_issues, dead_code, real_vulns,
             todos, complex_functions, missing_docstrings, previous_failure
         ])
 
         if not has_issues:
             return {"status": "success", "plan": "No issues found. Code is clean.", "source": "none"}
 
-        # Try Anthropic Claude with rate limiting
         if self.client:
-            return self._call_claude_with_retry(scan_report)
+            return self._call_api_with_retry(scan_report)
 
-        # Try local LLM
         if self.llm:
             return self._call_local_llm(scan_report)
 
-        # Fall back to mock
         return self._generate_mock_plan(scan_report)
 
-    def _call_claude_with_retry(self, scan_report):
-        """Call Claude API with exponential backoff for rate limiting."""
+    def _call_api_with_retry(self, scan_report):
+        """Call OpenAI-compatible API with exponential backoff."""
         backoff = self.INITIAL_BACKOFF
 
         for attempt in range(self.MAX_RETRIES):
             try:
-                return self._call_claude(scan_report)
+                return self._call_api(scan_report)
             except RateLimitError as e:
                 if attempt == self.MAX_RETRIES - 1:
                     print(f"[Planner] Rate limit exceeded after {self.MAX_RETRIES} retries. Falling back to mock.")
-                    logger.warning(f"Claude API rate limit exceeded: {e}")
+                    logger.warning(f"API rate limit exceeded: {e}")
                     return self._generate_mock_plan(scan_report)
 
                 wait_time = min(backoff, self.MAX_BACKOFF)
@@ -100,17 +102,17 @@ class PlannerAgent:
                 backoff *= self.BACKOFF_MULTIPLIER
             except APIError as e:
                 print(f"[Planner] API error: {e}. Falling back to mock.")
-                logger.error(f"Claude API error: {e}")
+                logger.error(f"API error: {e}")
                 return self._generate_mock_plan(scan_report)
             except Exception as e:
                 print(f"[Planner] Unexpected error: {e}. Falling back to mock.")
-                logger.error(f"Unexpected error calling Claude: {e}")
+                logger.error(f"Unexpected error calling API: {e}")
                 return self._generate_mock_plan(scan_report)
 
         return self._generate_mock_plan(scan_report)
 
-    def _call_claude(self, scan_report):
-        """Make a single Claude API call."""
+    def _call_api(self, scan_report):
+        """Make a single API call."""
         system_prompt = (
             "You are a senior software engineer specializing in code quality. "
             "You will be given a JSON scan report of a Python codebase. Your job is to "
@@ -122,19 +124,24 @@ class PlannerAgent:
             "Format your output as a numbered plan. Be specific and brief."
         )
 
-        # Truncate scan report to avoid token limits
         truncated_report = self._truncate_report(scan_report)
         user_message = f"Here is the scan report:\n{json.dumps(truncated_report, indent=2)}"
 
-        print("[Planner] Querying Claude for fix plan...")
-        response = self.client.messages.create(
-            model="claude-3-5-sonnet-20240620",
-            max_tokens=512,  # Reduced to save quota
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_message}],
+        print(f"[Planner] Querying {self.model_id} for fix plan...")
+        response = self.client.chat.completions.create(
+            model=self.model_id,
+            max_tokens=1024,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
         )
-        plan_text = response.content[0].text.strip()
-        return {"status": "success", "plan": plan_text, "source": "claude"}
+        content = response.choices[0].message.content
+        if not content:
+            print("[Planner] API returned empty content. Falling back to mock.")
+            return self._generate_mock_plan(scan_report)
+        plan_text = content.strip()
+        return {"status": "success", "plan": plan_text, "source": self.model_id}
 
     def _truncate_report(self, scan_report):
         """Truncate report to reduce token usage."""
@@ -145,26 +152,24 @@ class PlannerAgent:
 
         findings = scan_report.get("findings", {})
 
-        # Limit lint issues to first 10
         lint = findings.get("lint", [])
         if lint:
             truncated["findings"]["lint"] = lint[:10]
             if len(lint) > 10:
                 truncated["findings"]["lint_total"] = len(lint)
 
-        # Truncate dead code output
         dead_code = findings.get("dead_code", "")
         if dead_code:
             truncated["findings"]["dead_code"] = dead_code[:500]
 
-        # Limit vulnerabilities to first 5
         vulns = findings.get("vulnerabilities", [])
-        if vulns:
+        if isinstance(vulns, list) and vulns:
             truncated["findings"]["vulnerabilities"] = vulns[:5]
             if len(vulns) > 5:
                 truncated["findings"]["vulnerabilities_total"] = len(vulns)
+        elif isinstance(vulns, dict) and "error" not in vulns and vulns:
+            truncated["findings"]["vulnerabilities"] = vulns
 
-        # Include other fields with truncation
         if scan_report.get("todos"):
             truncated["todos"] = scan_report["todos"][:5]
         if scan_report.get("complex_functions"):
@@ -184,7 +189,7 @@ class PlannerAgent:
         response = self.llm(
             prompt,
             max_tokens=512,
-            stop=["</s>", "User:"],
+            stop=["<|end|>", "<|user|>", "<|system|>", "---"],
             echo=False
         )
         raw_text = response['choices'][0]['text'].strip()
@@ -200,15 +205,13 @@ class PlannerAgent:
         complex_funcs = scan_report.get("complex_functions", [])
         missing_docs = scan_report.get("missing_docstrings", [])
 
-        prompt = "You are Ghost Committer, an autonomous AI developer agent. Create a concise, actionable plan to fix the following issues:\n\n"
+        prompt = "<|user|>\nYou are Ghost Committer, an autonomous AI developer agent. Create a concise, actionable plan to fix the following issues:\n\n"
         if lint and isinstance(lint, list):
             prompt += f"Linting Issues:\n{json.dumps(lint[:5], indent=2)}\n"
         if dead:
             prompt += f"Dead Code:\n{dead[:500]}\n"
-        if vulns and isinstance(vulns, list):
+        if isinstance(vulns, list) and vulns:
             prompt += f"Vulnerabilities:\n{json.dumps(vulns[:5], indent=2)}\n"
-        elif isinstance(vulns, dict) and "error" in vulns:
-             prompt += f"Vulnerabilities Error: {vulns['error']}\n"
 
         if todos and isinstance(todos, list):
             prompt += f"TODO Comments:\n{json.dumps(todos[:5], indent=2)}\n"
@@ -217,82 +220,117 @@ class PlannerAgent:
         if missing_docs and isinstance(missing_docs, list):
             prompt += f"Missing Docstrings:\n{json.dumps(missing_docs[:5], indent=2)}\n"
 
-        prompt += "\nPlan of action:\n1."
+        prompt += "\n<|end|>\n<|assistant|>\n1."
         return prompt
 
     def _generate_mock_plan(self, scan_report):
         """Generate a mock plan when APIs are unavailable."""
-        # ... rest of mock plan ...
+        todos = scan_report.get("todos", [])
+        complex_funcs = scan_report.get("complex_functions", [])
+        missing_docs = scan_report.get("missing_docstrings", [])
+        lint_issues = scan_report.get("findings", {}).get("lint", [])
+
+        steps = []
+        step_num = 1
+
+        if lint_issues:
+            steps.append(f"{step_num}. Fix {len(lint_issues)} linting issue(s) identified by ruff (unused imports, style violations).")
+            step_num += 1
+
+        if todos:
+            for t in todos[:3]:
+                steps.append(f"{step_num}. Resolve TODO at {t.get('file', '?')}:{t.get('line', '?')} — {t.get('content', '')[:80]}")
+                step_num += 1
+
+        if complex_funcs:
+            for f in complex_funcs[:3]:
+                steps.append(f"{step_num}. Simplify function '{f.get('name', '?')}' in {f.get('file', '?')} (high cyclomatic complexity).")
+                step_num += 1
+
+        if missing_docs:
+            for d in missing_docs[:3]:
+                steps.append(f"{step_num}. Add docstring to function '{d.get('name', '?')}' in {d.get('file', '?')}:{d.get('line', '?')}.")
+                step_num += 1
+
+        if not steps:
+            steps.append("1. No actionable issues found — codebase is clean.")
+
+        plan_text = "\n".join(steps)
+        return {"status": "success", "plan": plan_text, "source": "mock"}
 
     def generate_patch(self, file_content, issue_description):
         """Generates a patch for a specific file and issue."""
-        # Truncate issue description to avoid token limits
         truncated_issue = issue_description[:2000] if len(issue_description) > 2000 else issue_description
         print(f"[Planner] Generating patch for issue: {truncated_issue[:50]}...")
-        
-        prompt = (
-            "<|system|>\n"
-            "You are a Python Code Generator. Your task is to output the FULL, updated content of a Python file. "
-            "STRICT RULES:\n"
-            "1. Output ONLY the code.\n"
-            "2. DO NOT use markdown code blocks (no ```).\n"
-            "3. DO NOT include explanations, greetings, or conversational filler.\n"
-            "4. Maintain all existing imports and functionality unless specifically asked to change them.\n"
-            "5. If you fail to follow these rules, the system will break.\n"
-            "<|user|>\n"
-            f"--- ORIGINAL FILE CONTENT ---\n{file_content}\n\n"
-            f"--- ISSUE TO FIX ---\n{truncated_issue}\n\n"
-            "Provide the complete updated Python file content now.\n"
-            "<|assistant|>\n"
-        )
 
         raw_patch = ""
+
         if self.client:
-             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20240620",
-                max_tokens=2048,
-                system="Output only raw file content.",
-                messages=[{"role": "user", "content": prompt}],
-            )
-             raw_patch = response.content[0].text.strip()
-        
+            try:
+                response = self.client.chat.completions.create(
+                    model=self.model_id,
+                    max_tokens=4096,
+                    messages=[
+                        {"role": "system", "content": "Output only raw Python file content. No markdown, no explanations, no code blocks."},
+                        {"role": "user", "content": (
+                            f"--- ORIGINAL FILE CONTENT ---\n{file_content}\n\n"
+                            f"--- ISSUE TO FIX ---\n{truncated_issue}\n\n"
+                            "Provide the complete updated Python file content now."
+                        )},
+                    ],
+                )
+                content = response.choices[0].message.content
+                if content:
+                    raw_patch = content.strip()
+            except Exception as e:
+                print(f"[Planner] Patch API call failed: {e}")
+
         elif self.llm:
-            response = self.llm(
-                prompt,
-                max_tokens=2048,
-                stop=["<|end|>", "<|user|>", "<|system|>", "---"],
-                echo=False
+            # Phi-3 has 4096 token context; truncate large files to ~2000 chars
+            # so there's room for prompt overhead and the generated output
+            safe_content = file_content[:2000] if len(file_content) > 2000 else file_content
+            prompt = (
+                "<|user|>\n"
+                "You are a Python Code Generator. Output ONLY the full updated file content. "
+                "No markdown, no explanations.\n\n"
+                f"--- ORIGINAL FILE CONTENT ---\n{safe_content}\n\n"
+                f"--- ISSUE TO FIX ---\n{truncated_issue}\n\n"
+                "Provide the complete updated Python file content now.\n"
+                "<|end|>\n<|assistant|>\n"
             )
-            raw_patch = response['choices'][0]['text'].strip()
-        
+            try:
+                response = self.llm(
+                    prompt,
+                    max_tokens=2048,
+                    stop=["<|end|>", "<|user|>", "<|system|>", "---"],
+                    echo=False
+                )
+                raw_patch = response['choices'][0]['text'].strip()
+            except Exception as e:
+                print(f"[Planner] Local LLM patch error: {e}")
+                return file_content
+
         if not raw_patch:
             return file_content
 
-        # Advanced cleaning of LLM artifacts
         lines = raw_patch.splitlines()
         clean_lines = []
-        
-        # Stop words that indicate the LLM started talking instead of coding
-        stop_phrases = ["here is the", "updated file", "i have", "assistant:", "python", "```"]
-        
+        stop_phrases = ["here is the", "updated file", "i have", "assistant:", "```"]
+
         for line in lines:
             trimmed = line.strip().lower()
-            # Skip empty lines at the very beginning
             if not clean_lines and not trimmed:
                 continue
-            # If we hit a markdown block or conversational filler, skip it
             if any(phrase in trimmed for phrase in stop_phrases) and len(trimmed) < 100:
                 continue
             clean_lines.append(line)
-            
-        # Join and perform a final check
+
         final_code = "\n".join(clean_lines).strip()
-        
-        # If the LLM just repeated the prompt or returned something too short, fallback
+
         if len(final_code) < 10:
             print("[Planner] Warning: LLM returned empty or invalid patch. Falling back.")
             return file_content
-            
+
         return final_code
 
 
