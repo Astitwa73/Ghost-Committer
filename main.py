@@ -8,7 +8,7 @@ import tempfile
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -104,7 +104,39 @@ MAX_RETRIES = 3
 
 def run_ghost_committer(repo_path, tmpdir_to_cleanup=None):
     print(f"--- Waking up Ghost Committer for {repo_path} ---")
-    send_openclaw_heartbeat("starting", f"Ghost Committer waking up for {repo_path}")
+
+    # Build the authenticated push URL from .env — all git pushes MUST target this repo
+    env_repo = os.environ.get("GITHUB_REPOSITORY")
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if not env_repo:
+        print("[Main] ABORT: GITHUB_REPOSITORY is not set in .env.")
+        if tmpdir_to_cleanup:
+            shutil.rmtree(tmpdir_to_cleanup, ignore_errors=True)
+        return
+    push_remote_url = (
+        f"https://{github_token}@github.com/{env_repo}.git"
+        if github_token
+        else f"https://github.com/{env_repo}.git"
+    )
+
+    # Guard: if the working repo has a GitHub remote, it must match GITHUB_REPOSITORY
+    from patcher.git_ops import GitPatcher as _GP
+    _probe = _GP(repo_path)
+    detected_repo = _probe.get_github_repo_name()
+    if detected_repo and detected_repo != env_repo:
+        print(
+            f"[Main] ABORT: Working repo remote '{detected_repo}' does not match "
+            f"GITHUB_REPOSITORY='{env_repo}' in .env. Refusing to operate on wrong repo."
+        )
+        send_openclaw_heartbeat(
+            "error",
+            f"Repo mismatch: remote is '{detected_repo}' but .env targets '{env_repo}'. Aborted."
+        )
+        if tmpdir_to_cleanup:
+            shutil.rmtree(tmpdir_to_cleanup, ignore_errors=True)
+        return
+
+    send_openclaw_heartbeat("starting", f"Ghost Committer waking up for {env_repo}")
 
     try:
         # Layer 2: Scanner
@@ -205,7 +237,7 @@ def run_ghost_committer(repo_path, tmpdir_to_cleanup=None):
 
                 patcher.commit_changes("chore: apply autonomous overnight tech debt fixes")
                 print(f"[Main] Changes committed to branch {branch}")
-                patcher.push_branch(branch)
+                patcher.push_branch(branch, remote_url=push_remote_url)
             else:
                 print("[Main] Failed to create branch.")
 
@@ -252,7 +284,7 @@ def run_ghost_committer(repo_path, tmpdir_to_cleanup=None):
                     print(f"[Main] Applied self-correction patch to {os.path.basename(last_fixed_file)}")
                     if branch and patcher.repo:
                         patcher.commit_changes(f"chore: self-correction for validation failure (retry {retries_used})")
-                        patcher.push_branch(branch)
+                        patcher.push_branch(branch, remote_url=push_remote_url)
                 else:
                     print("[Main] Planner could not generate a better fix.")
             else:
@@ -266,12 +298,11 @@ def run_ghost_committer(repo_path, tmpdir_to_cleanup=None):
             send_openclaw_heartbeat("success", "Pipeline Green. Delivering PR.")
             print("Ready for Delivery (PR creation).")
 
-            # Layer 6: Delivery — detect repo from the target repo's own git remote
+            # Layer 6: Delivery — always target the repo configured in .env
             print("\n--- Delivery ---")
-            detected_repo = patcher.get_github_repo_name()
-            if detected_repo:
-                print(f"[Main] Detected GitHub repo: {detected_repo}")
-            github_del = GitHubDelivery(repo_name=detected_repo)
+            env_repo = os.environ.get("GITHUB_REPOSITORY")
+            print(f"[Main] Delivering PR to configured repo: {env_repo}")
+            github_del = GitHubDelivery(repo_name=env_repo)
             slack = SlackNotifier()
             telegram = TelegramNotifier()
 

@@ -18,7 +18,8 @@
       "Bash(openclaw directory *)",
       "Bash(.venv/bin/python scheduler.py test)",
       "Bash(break)",
-      "Bash(kill 31095)"
+      "Bash(kill 31095)",
+      "Bash(xargs ls -la)"
     ]
   }
 }

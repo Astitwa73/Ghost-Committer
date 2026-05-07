@@ -50,13 +50,14 @@ class GitPatcher:
             print(f"[Patcher] Git error during commit: {e}")
             return False
 
-    def push_branch(self, branch_name):
-        """Pushes the branch to origin so GitHub can create a PR against it."""
+    def push_branch(self, branch_name, remote_url=None):
+        """Pushes the branch to the specified remote URL, or 'origin' as fallback."""
         if not self.repo:
             return False
+        target = remote_url or "origin"
         try:
-            print(f"[Patcher] Pushing branch {branch_name} to origin...")
-            self.git.push("origin", branch_name)
+            print(f"[Patcher] Pushing branch {branch_name} to {target if not remote_url else '<env-configured-repo>'}...")
+            self.git.push(target, branch_name)
             print(f"[Patcher] Branch {branch_name} pushed successfully.")
             return True
         except GitCommandError as e:
