@@ -60,7 +60,9 @@
       "Read(//opt/homebrew/lib/node_modules/openclaw/dist/**)",
       "Bash(curl -s -X POST https://opencode.ai/zen/go/v1/chat/completions -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y' -H 'Content-Type: application/json' -d '{\"model\":\"opencode-go/kimi-k2.6\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi in one word\"}],\"max_tokens\":10}')",
       "Bash(curl -s https://opencode.ai/zen/go/v1/models -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y')",
-      "Bash(curl -s -X POST https://opencode.ai/zen/go/v1/chat/completions -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y' -H 'Content-Type: application/json' -d '{\"model\":\"kimi-k2.6\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi in one word\"}],\"max_tokens\":10}')"
+      "Bash(curl -s -X POST https://opencode.ai/zen/go/v1/chat/completions -H 'Authorization: Bearer sk-yA7ISLAWtVt21blnY7LJ8nU56CyUMJr2LCeBAb4TOuuou51qcBJKFCSKlBHaNi3y' -H 'Content-Type: application/json' -d '{\"model\":\"kimi-k2.6\",\"messages\":[{\"role\":\"user\",\"content\":\"say hi in one word\"}],\"max_tokens\":10}')",
+      "Bash(curl -s https://api.telegram.org/bot7305043765:AAEK2ZrXHoon2vov_8kOLVfuaVSHur1uGc0/sendMessage -d 'chat_id=1000013865&text=Ghost+Committer+test+ping')",
+      "Bash(echo \"---EXIT:$?---\")"
     ]
   }
 }

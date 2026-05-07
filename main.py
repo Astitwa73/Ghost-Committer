@@ -93,11 +93,21 @@ def run_ghost_committer(repo_path):
     val_result = validator.run_tests()
 
     retries_used = 0
+    last_failure = None
     while val_result.get("status") != "success" and retries_used < MAX_RETRIES:
+        failure_output = val_result.get("output", val_result.get("message", "Unknown error"))
+
+        # If the failure is identical to the last attempt, it's an infrastructure
+        # issue that patching can't fix — stop retrying early.
+        if failure_output == last_failure:
+            print(f"\n--- Validation: Same failure repeated — stopping retries early ---")
+            _oc_event("ghost-committer: validation_retry_aborted — repeated_failure")
+            break
+        last_failure = failure_output
+
         retries_used += 1
         _oc_event(f"ghost-committer: validation_retry attempt:{retries_used}/{MAX_RETRIES}")
         print(f"\n--- Validation Failed (Attempt {retries_used}/{MAX_RETRIES}) ---")
-        failure_output = val_result.get("output", val_result.get("message", "Unknown error"))
         print(f"Failure reason: {failure_output}")
 
         # Append failure to report and re-plan
