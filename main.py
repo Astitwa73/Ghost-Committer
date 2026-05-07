@@ -1,16 +1,10 @@
 import os
 import argparse
+import subprocess
 import requests
 import datetime
 import shutil
 import tempfile
-
-# Monkeypatch cmdop.exceptions before importing openclaw
-import cmdop.exceptions
-if not hasattr(cmdop.exceptions, "TimeoutError"):
-    cmdop.exceptions.TimeoutError = cmdop.exceptions.ConnectionTimeoutError
-
-from openclaw import OpenClaw
 
 try:
     from dotenv import load_dotenv
@@ -20,33 +14,61 @@ except ImportError:
 
 
 def send_openclaw_heartbeat(status: str, message: str):
-    """Sends a heartbeat to the OpenClaw platform using the SDK."""
-    api_key = os.getenv("OPENCLAW_API_KEY")
-    server_url = os.getenv("OPENCLAW_SERVER_URL")
+    """Sends a system event to the local OpenClaw gateway and a Telegram message via OpenClaw."""
+    gateway_url = os.getenv("OPENCLAW_GATEWAY_URL")
+    gateway_token = os.getenv("OPENCLAW_GATEWAY_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
 
-    if api_key:
-        try:
-            print(f"[OpenClaw] Connecting via SDK to send status: {status}")
-            client = OpenClaw.remote(api_key=api_key, server=server_url or "grpc.cmdop.com:443")
-            client.agent.run(f"Status Update: {status} - {message}", session_id="ghost-committer-session")
-            client.close()
-            return
-        except Exception as e:
-            print(f"[OpenClaw] SDK Heartbeat failed: {e}")
+    if not gateway_url or not gateway_token:
+        print(f"[OpenClaw] Warning: OPENCLAW_GATEWAY_URL/TOKEN not set. Skipping heartbeat: {status}")
+        return
 
-    heartbeat_url = os.getenv("OPENCLAW_HEARTBEAT_URL")
-    if heartbeat_url:
-        try:
-            print(f"[OpenClaw] Sending REST heartbeat: {status} - {message}")
-            requests.post(
-                heartbeat_url,
-                json={"agent": "ghost-committer", "status": status, "message": message},
-                timeout=5
-            )
-        except Exception as e:
-            print(f"[OpenClaw] REST Heartbeat failed: {e}")
-    else:
-        print(f"[OpenClaw] Warning: OpenClaw credentials/URL not set. Skipping heartbeat: {status}")
+    text = f"Ghost Committer [{status.upper()}]: {message}"
+
+    # 1. Internal gateway system event
+    try:
+        result = subprocess.run(
+            [
+                "openclaw", "system", "event",
+                "--text", text,
+                "--url", gateway_url,
+                "--token", gateway_token,
+                "--mode", "now",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            print(f"[OpenClaw] Gateway event sent: {status}")
+        else:
+            print(f"[OpenClaw] Gateway event failed: {result.stderr.strip()}")
+    except Exception as e:
+        print(f"[OpenClaw] Gateway event error: {e}")
+
+    # 2. Telegram message via OpenClaw channel
+    if not chat_id:
+        return
+    try:
+        result = subprocess.run(
+            [
+                "openclaw", "message", "send",
+                "--channel", "telegram",
+                "--target", chat_id,
+                "--message", text,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode == 0:
+            print(f"[OpenClaw] Telegram heartbeat sent: {status}")
+        else:
+            print(f"[OpenClaw] Telegram heartbeat failed: {result.stderr.strip()}")
+    except Exception as e:
+        print(f"[OpenClaw] Telegram heartbeat error: {e}")
 
 
 def _clone_target_repo():

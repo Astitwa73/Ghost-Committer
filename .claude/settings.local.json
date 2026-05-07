@@ -8,7 +8,17 @@
       "Bash(.venv/bin/pip show *)",
       "Bash(.venv/bin/python -c ' *)",
       "Bash(.venv/bin/python main.py)",
-      "Bash(.venv/bin/python -c \"import openai; print\\('openai version:', openai.__version__\\)\")"
+      "Bash(.venv/bin/python -c \"import openai; print\\('openai version:', openai.__version__\\)\")",
+      "Bash(openclaw system *)",
+      "Bash(openclaw config *)",
+      "Bash(openclaw status *)",
+      "Read(//Users/admin/.openclaw/**)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('gateway',{}\\).get\\('auth',{}\\).get\\('token','not found'\\)\\)\")",
+      "Bash(openclaw message *)",
+      "Bash(openclaw directory *)",
+      "Bash(.venv/bin/python scheduler.py test)",
+      "Bash(break)",
+      "Bash(kill 31095)"
     ]
   }
 }
